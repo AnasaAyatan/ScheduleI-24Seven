@@ -349,7 +349,13 @@ public sealed class Mod : MelonMod
                 _nativeRateWarning = true;
                 MelonLogger.Warning("Native plant growth rate unavailable; using previous fixed-rate fallback: " + e.Message);
             }
-            return Math.Clamp(_growthPerMinute.Value, 0f, 0.05f) * minutes * boost;
+            // Preserve legacy fallback pacing: one fixed increment per configured
+            // update interval, not one per converted game minute.
+            float secondsPerGameMinute = _realSecondsPerGameMinute.Value;
+            if (!float.IsFinite(secondsPerGameMinute) || secondsPerGameMinute <= 0f)
+                secondsPerGameMinute = 1f;
+            float updateIntervals = minutes * secondsPerGameMinute / Math.Max(1f, _secondsPerMinute.Value);
+            return Math.Clamp(_growthPerMinute.Value, 0f, 0.05f) * updateIntervals * boost;
         }
     }
 
