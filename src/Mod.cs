@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.3-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.4-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -119,10 +119,24 @@ public sealed class Mod : MelonMod
             Dump(_plantType, "Water");
             Dump(_plantType, "Pot");
             Dump(_plantType, "Soil");
+            Dump(_plantType, "Grow");
+            Dump(_plantType, "Progress");
+            Dump(_plantType, "MinPass");
+            var potType = AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Pot");
+            if (potType != null)
+            {
+                Dump(potType, "Water");
+                Dump(potType, "Moist");
+                Dump(potType, "Hydrat");
+                Dump(potType, "Soil");
+                Dump(potType, "Plant");
+                Dump(potType, "Grow");
+                Dump(potType, "MinPass");
+            }
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.3.3-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.3.4-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}.");
