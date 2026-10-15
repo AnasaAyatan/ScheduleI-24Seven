@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.5-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.6-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -76,7 +76,7 @@ public sealed class Mod : MelonMod
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
             "Experimental fraction of growth per simulated minute, capped at 0.05.");
 
-        _jsonPath = Path.Combine(MelonEnvironment.UserDataDirectory, "ScheduleI24Seven.json");
+        _jsonPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "UserData"), "ScheduleI24Seven.json");
         InitializeJson();
 
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
@@ -192,7 +192,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.5-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.6-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
@@ -203,7 +203,7 @@ public sealed class Mod : MelonMod
     {
         try
         {
-            Directory.CreateDirectory(MelonEnvironment.UserDataDirectory);
+            Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "UserData"));
             if (!File.Exists(_jsonPath))
             {
                 var defaults = new
