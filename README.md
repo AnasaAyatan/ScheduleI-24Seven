@@ -1,70 +1,42 @@
-# Schedule I 24/7 — development build
+# Schedule I 24/7 — experimental development build
 
-Independent MelonLoader / Harmony prototype for Schedule I IL2CPP, designed around the reported **v0.4.7f12** installation.
+Independent MelonLoader/Harmony prototype for Schedule I IL2CPP v0.4.7f12.
 
-## Build status
+## Status: 0.3.1-alpha
 
-**Version 0.3.0-alpha — source code only; not compiled or validated in-game.** This branch is experimental. Do not publish this as a working replacement yet.
+- **Employees at 4 AM:** Confirmed by the user to keep working after 4 AM. The work eligibility prefix is experimental and may bypass other requirements.
+- **Plants at 4 AM:** Experimental `Plant.MinPass(int)` simulation, disabled by default. Requires a backup save and an in-game test.
+- **Wages:** **Unmodified game behavior.** The mod does not charge wages, change `PaidForToday`, or call `RemoveDailyWage`. Wages remain handled by the game's normal day transition. There is no extra 24-minute wage cycle.
+- **Compatibility:** MelonLoader 0.7.3 and game v0.4.7f12 were confirmed in logs. This build requires further plant testing.
 
-| Feature | Implementation | Reliability |
-|---|---|---|
-| Employee work at end of day | Harmony prefix on parameterless `Employee.CanWork()`, with runtime end-of-day detection | Experimental; bypasses other eligibility checks |
-| Plant growth while game time is frozen | Uses discovered `Plant.MinPass(int)` and generic Unity plant enumeration | Experimental; disabled by default, may be unavailable on IL2CPP |
-| Wage deduction every 24 minutes during freeze | Experimental 24-minute real-time cycle with dry-run; OFF by default | Unverified duplicate-charge/host authority safety |
-| Normal game hours | Employee prefix falls through to original implementation | Unverified |
-| Safety | Fail-closed method detection, exceptions logged, failing plant simulation disabled | Requires game testing |
-
-## Local prerequisites
-
-- Steam game version matching your locally generated IL2CPP wrappers
-- MelonLoader 0.7.3
-- .NET 6 SDK
-- The repository's NuGet references; game-specific generated wrappers may require additional local-only references
-
-## Build
-
-From the repository root in PowerShell:
+## Build and install (PowerShell)
 
 ```powershell
-git fetch origin
-git switch development/24-seven-runtime
-dotnet restore
+git pull origin development/24-seven-runtime
 dotnet build -c Release
+Copy-Item ".\bin\Release\net6.0\ScheduleI24Seven.dll" "C:\Program Files (x86)\Steam\steamapps\common\Schedule I\Mods" -Force
 ```
 
-The build may fail without the locally generated game/Unity IL2CPP assembly references. Do **not** commit game or MelonLoader binaries. See your local `Schedule I/MelonLoader/Il2CppAssemblies` directory and share compile errors instead.
+Close the game before copying the DLL. Back up your save and keep the conflicting old Employee Always Work & Plants Always Grow DLL out of the Mods folder.
 
-## Test carefully
+## Settings
 
-1. Back up your save.
-2. Remove the older conflicting `Employee Always Work & Plants Always Grow v2.0.0.dll` from `Mods`.
-3. Install the built DLL in `Mods`.
-4. Leave wage charging disabled (`EndOfDayWages=false`) until validated; for diagnostics set `EndOfDayWages=true`, `WageDryRun=true`, and remain at 4 AM for 24 real minutes.
-5. Plant growth is opt-in (`PlantGrowthAtEndOfDay=true`). Test only with a backed-up save; the reflection-based IL2CPP enumerator can fail.
-6. Inspect `MelonLoader/Latest.log` for patch and API-detection messages.
-5. Check 4 AM behavior with one employee before testing plants.
-6. To opt into plant ticking, set `PlantGrowthAtEndOfDay` to `true` in MelonPreferences, then restart. **This may not work with generated IL2CPP reflection wrappers.**
-
-## Configuration
-
-Category: `ScheduleI24Seven`
+MelonPreferences category: `ScheduleI24Seven`
 
 - `EmployeesAtEndOfDay`: true
-- `PlantGrowthAtEndOfDay`: false
-- `Diagnostics`: true
-- `EndOfDayWages`: false (turn on only for dry-run testing first)
-- `WageDryRun`: true (does not deduct wages)
+- `PlantGrowthAtEndOfDay`: false (experimental; set true for controlled testing)
 - `SecondsPerPlantMinute`: 60
+- `Diagnostics`: true
+
+Older `EndOfDayWages` and `WageDryRun` lines may remain in an existing preferences file. **They are ignored and may be deleted.**
 
 ## Remaining work
 
-- Verify actual current game end-of-day API and signatures
-- Safely retain employee bed, wage and assignment requirements
-- Validate wage dry-run first, then verify daily-wage deduction semantics and multiplayer host authority before enabling real charges
-- Confirm IL2CPP plant enumeration and growth simulation
-- Implement once-per-24-minute wage deductions with no duplicate charges
-- Compile with local game DLLs and test single-player/multiplayer host authority
+- Validate plant growth and its IL2CPP enumerator, and avoid duplicate growth on day transitions.
+- Preserve employee eligibility requirements more precisely than overriding `CanWork`.
+- Confirm normal wage deductions and day transitions in game (no modification of wage logic).
+- Test stability with single-player and multiplayer.
 
-## Attribution and licensing
+## License
 
-Independent implementation. No source or game binaries copied from the original Nexus release. No reuse license granted; all rights reserved until the repository owner selects one.
+All rights reserved until the owner chooses a license. Do not commit game binaries.
