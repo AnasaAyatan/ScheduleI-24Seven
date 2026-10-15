@@ -3,10 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.IO;
+using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.4-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.5-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -26,6 +28,10 @@ public sealed class Mod : MelonMod
     private static double _lastEndOfDaySample = -1;
     private static bool _reportedMissingPlant;
     private static bool _nativeRateWarning;
+    private static string _jsonPath = "";
+    private static double _nextJsonCheck;
+    private static DateTime _lastJsonWrite = DateTime.MinValue;
+    private static bool _jsonErrorReported;
     private static bool _invalidBoostWarning;
     private static bool _highBoostWarning;
     private static Type? _timeType;
@@ -69,6 +75,9 @@ public sealed class Mod : MelonMod
             "5 percent default boost during end-of-day; any positive finite multiplier allowed.");
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
             "Experimental fraction of growth per simulated minute, capped at 0.05.");
+
+        _jsonPath = Path.Combine(MelonEnvironment.UserDataDirectory, "ScheduleI24Seven.json");
+        InitializeJson();
 
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
@@ -183,11 +192,80 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.4-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.5-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
         _previousPlantEnabled = _plantEnabled.Value;
+    }
+
+    private static void InitializeJson()
+    {
+        try
+        {
+            Directory.CreateDirectory(MelonEnvironment.UserDataDirectory);
+            if (!File.Exists(_jsonPath))
+            {
+                var defaults = new
+                {
+                    EmployeesAtEndOfDay = _employeeEnabled.Value,
+                    PlantGrowthAtEndOfDay = _plantEnabled.Value,
+                    ProtectWaterDuringFrozenGrowth = _protectWater.Value,
+                    Diagnostics = _diagnostics.Value,
+                    SecondsPerPlantMinute = _secondsPerMinute.Value,
+                    RealSecondsPerGameMinute = _realSecondsPerGameMinute.Value,
+                    NormalizedGrowthPerMinute = _growthPerMinute.Value,
+                    AfterHoursGrowthMultiplier = _afterHoursBoost.Value
+                };
+                File.WriteAllText(_jsonPath, JsonSerializer.Serialize(defaults,
+                    new JsonSerializerOptions { WriteIndented = true }));
+            }
+            ReloadJsonIfChanged();
+            MelonLogger.Msg("Editable phone JSON configuration: " + _jsonPath);
+        }
+        catch (Exception e) { MelonLogger.Warning("JSON settings unavailable; using MelonPreferences: " + e.Message); }
+    }
+
+    private static void ReloadJsonIfChanged()
+    {
+        try
+        {
+            if (!File.Exists(_jsonPath)) return;
+            DateTime modified = File.GetLastWriteTimeUtc(_jsonPath);
+            if (modified == _lastJsonWrite) return;
+            using var doc = JsonDocument.Parse(File.ReadAllText(_jsonPath));
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("JSON settings must be an object.");
+            bool ReadBool(string key, bool existing) =>
+                root.TryGetProperty(key, out var p) &&
+                (p.ValueKind == JsonValueKind.True || p.ValueKind == JsonValueKind.False)
+                    ? p.GetBoolean() : existing;
+            float ReadFloat(string key, float existing) =>
+                root.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Number &&
+                p.TryGetSingle(out float value) && float.IsFinite(value) ? value : existing;
+            // Parse the full file before applying anything, so invalid JSON
+            // cannot partially overwrite live preferences.
+            _employeeEnabled.Value = ReadBool("EmployeesAtEndOfDay", _employeeEnabled.Value);
+            _plantEnabled.Value = ReadBool("PlantGrowthAtEndOfDay", _plantEnabled.Value);
+            _protectWater.Value = ReadBool("ProtectWaterDuringFrozenGrowth", _protectWater.Value);
+            _diagnostics.Value = ReadBool("Diagnostics", _diagnostics.Value);
+            _secondsPerMinute.Value = Math.Max(1f, ReadFloat("SecondsPerPlantMinute", _secondsPerMinute.Value));
+            _realSecondsPerGameMinute.Value = Math.Max(0.01f, ReadFloat("RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value));
+            _growthPerMinute.Value = Math.Max(0f, ReadFloat("NormalizedGrowthPerMinute", _growthPerMinute.Value));
+            _afterHoursBoost.Value = Math.Max(0.01f, ReadFloat("AfterHoursGrowthMultiplier", _afterHoursBoost.Value));
+            _lastJsonWrite = modified;
+            _jsonErrorReported = false;
+            MelonLogger.Msg("Loaded editable JSON settings from " + _jsonPath);
+        }
+        catch (Exception e)
+        {
+            if (!_jsonErrorReported)
+            {
+                _jsonErrorReported = true;
+                MelonLogger.Warning("Could not reload JSON settings; keeping previous settings: " + e.Message);
+            }
+        }
     }
 
     private static void Dump(Type? type, string fragment)
@@ -217,6 +295,11 @@ public sealed class Mod : MelonMod
     public override void OnUpdate()
     {
         var current = Watch.Elapsed.TotalSeconds;
+        if (current >= _nextJsonCheck)
+        {
+            _nextJsonCheck = current + 2;
+            ReloadJsonIfChanged();
+        }
         var elapsed = _lastSeconds <= 0 ? 0 : Math.Clamp(current - _lastSeconds, 0, 1);
         _lastSeconds = current;
         bool frozen = EndOfDay();
