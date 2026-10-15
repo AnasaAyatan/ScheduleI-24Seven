@@ -2,7 +2,7 @@
 
 Independent **Schedule I** (IL2CPP) MelonLoader mod for keeping employees working during the end-of-day 4 AM freeze, with opt-in experimental plant growth.
 
-## Current status — 0.3.1-alpha
+## Current status — 0.3.2-alpha
 
 Test environment: Schedule I **0.4.7f12** and MelonLoader **0.7.3 Open-Beta** on Windows 11.
 
@@ -53,6 +53,14 @@ MelonLoader settings: `UserData\MelonPreferences.cfg`, category `ScheduleI24Seve
 | `Diagnostics` | `true` | Log detected game APIs and patch status |
 
 **There are no wage-related settings.** If an older settings file contains `EndOfDayWages` or `WageDryRun`, those entries are ignored; you can remove them.
+
+## Plant-growth troubleshooting (v0.3.2-alpha)
+
+The 17:38 game log confirmed that the mod loaded but contained no `Advanced ... plants` or plant-ticking error entries. This alone does **not** establish whether the live game preference was enabled or whether the 4 AM state was detected.
+
+Version 0.3.2-alpha logs the **actual runtime preferences** at startup, and (when `Diagnostics=true`) a **Growth status** line approximately every 30 seconds. Check `plantsEnabled`, `endOfDay`, `sampleAgeSeconds`, `plantMethod`, and `enumerator`. A false flag or stale end-of-day observation explains why no growth attempt occurs.
+
+No change to payroll: wages remain exclusively the game's responsibility.
 
 ## Plant growth test preset
 
