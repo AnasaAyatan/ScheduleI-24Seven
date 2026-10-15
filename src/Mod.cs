@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.3-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.4-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -52,6 +52,7 @@ public sealed class Mod : MelonMod
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
     private static MelonPreferences_Entry<float> _growthPerMinute = null!;
     private static MelonPreferences_Entry<float> _afterHoursBoost = null!;
+    private static MelonPreferences_Entry<float> _realSecondsPerGameMinute = null!;
 
     public override void OnInitializeMelon()
     {
@@ -62,6 +63,8 @@ public sealed class Mod : MelonMod
         _diagnostics = prefs.CreateEntry("Diagnostics", true);
         _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Blocks unverified water-consuming growth simulation.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
+        _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
+            "Number of real seconds per simulated game minute during frozen time. Default 1.");
         _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
             "5 percent default boost during end-of-day; any positive finite multiplier allowed.");
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
@@ -180,10 +183,10 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.3-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.4-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
-                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}.");
+                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
         _previousPlantEnabled = _plantEnabled.Value;
     }
 
@@ -248,11 +251,18 @@ public sealed class Mod : MelonMod
 
         // Water-safe mode uses growth progress only; do not call MinPass.
         // It also requires the end-of-day pot moisture setter clamp.
+        // _minuteCarry tracks REAL elapsed seconds, not game minutes.
+        // The old code treated one 30-second interval as one game minute,
+        // yielding approximately 30x slower growth than native game time.
         _minuteCarry += elapsed;
-        int minutes = (int)(_minuteCarry / Math.Max(1f, _secondsPerMinute.Value));
-        if (minutes < 1) return;
-        minutes = Math.Min(minutes, 5);
-        _minuteCarry -= minutes * Math.Max(1f, _secondsPerMinute.Value);
+        float updateInterval = Math.Max(1f, _secondsPerMinute.Value);
+        if (_minuteCarry < updateInterval) return;
+        double periodSeconds = _minuteCarry;
+        _minuteCarry = 0;
+        float secondsPerGameMinute = _realSecondsPerGameMinute.Value;
+        if (!float.IsFinite(secondsPerGameMinute) || secondsPerGameMinute <= 0f)
+            secondsPerGameMinute = 1f;
+        float simulatedMinutes = (float)Math.Min(periodSeconds / secondsPerGameMinute, 300d);
 
         try
         {
@@ -267,7 +277,7 @@ public sealed class Mod : MelonMod
                     var raw = _getGrowthProgress!.GetValue(plant);
                     if (raw is not float currentProgress || !float.IsFinite(currentProgress)
                         || currentProgress >= 1f) continue;
-                    float increment = CalculatePlantGrowth(plant, minutes);
+                    float increment = CalculatePlantGrowth(plant, simulatedMinutes);
                     if (increment <= 0) continue;
                     float target = Math.Min(1f, Math.Max(0f, currentProgress) + increment);
                     _setGrowthProgress!.Invoke(plant, new object[] { target });
@@ -277,10 +287,10 @@ public sealed class Mod : MelonMod
                         MelonLogger.Msg($"Plant growth check: before={currentProgress:F5}, requested={target:F5}, after={observed}.");
                     }
                 }
-                else _plantMinutes!.Invoke(plant, new object[] { minutes });
+                else _plantMinutes!.Invoke(plant, new object[] { Math.Max(1, (int)Math.Round(simulatedMinutes)) });
                 count++;
             }
-            if (_diagnostics.Value) MelonLogger.Msg($"Advanced {count} plants over {minutes} simulated minute(s); waterProtection={_protectWater.Value}.");
+            if (_diagnostics.Value) MelonLogger.Msg($"Advanced {count} plants over {simulatedMinutes:F1} simulated minute(s); waterProtection={_protectWater.Value}.");
         }
         catch (Exception e)
         {
@@ -293,7 +303,7 @@ public sealed class Mod : MelonMod
         }
     }
 
-    private static float CalculatePlantGrowth(object plant, int minutes)
+    private static float CalculatePlantGrowth(object plant, float minutes)
     {
         float boost = _afterHoursBoost.Value;
         if (!float.IsFinite(boost) || boost <= 0f)
