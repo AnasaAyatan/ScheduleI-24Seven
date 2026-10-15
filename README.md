@@ -2,7 +2,7 @@
 
 Independent **Schedule I** (IL2CPP) MelonLoader mod for keeping employees working during the end-of-day 4 AM freeze, with opt-in experimental plant growth.
 
-## Current status — 0.3.3-alpha
+## Current status — 0.3.4-alpha
 
 Test environment: Schedule I **0.4.7f12** and MelonLoader **0.7.3 Open-Beta** on Windows 11.
 
@@ -45,7 +45,7 @@ If your Steam library is elsewhere, modify `$game`. Build success alone does not
 
 The `ProtectWaterDuringFrozenGrowth` setting defaults to `true`. While it is enabled, the mod **does not call** `Plant.MinPass(int)` during the end-of-day freeze, because that method's water consumption behavior is unverified. This **prevents the mod's experimental growth method from changing water**, but it also means plants will **not** advance via that method yet.
 
-The startup log reports plant water/pot/soil API candidates to inform a future water-neutral growth implementation. Only set `ProtectWaterDuringFrozenGrowth=false` if you deliberately accept the unverified water behavior on a backed-up save.
+The startup log now inspects read-only method and property signatures for Plant growth/progress and linked Pot water, moisture, hydration, soil, plant, and growth APIs. This is diagnostic only: the game method responsible for water-neutral growth is not yet identified. Only set `ProtectWaterDuringFrozenGrowth=false` if you deliberately accept the unverified water behavior on a backed-up save.
 
 Normal game water usage outside this mod is unchanged. Employee behavior and day-transition wages are unchanged.
 
@@ -63,11 +63,11 @@ MelonLoader settings: `UserData\MelonPreferences.cfg`, category `ScheduleI24Seve
 
 **There are no wage-related settings.** If an older settings file contains `EndOfDayWages` or `WageDryRun`, those entries are ignored; you can remove them.
 
-## Plant-growth troubleshooting (v0.3.3-alpha)
+## Plant-growth troubleshooting (v0.3.4-alpha)
 
 The 17:38 game log confirmed that the mod loaded but contained no `Advanced ... plants` or plant-ticking error entries. This alone does **not** establish whether the live game preference was enabled or whether the 4 AM state was detected.
 
-Version 0.3.3-alpha logs the **actual runtime preferences** at startup, and (when `Diagnostics=true`) a **Growth status** line approximately every 30 seconds. Check `plantsEnabled`, `endOfDay`, `sampleAgeSeconds`, `plantMethod`, and `enumerator`. A false flag or stale end-of-day observation explains why no growth attempt occurs.
+Version 0.3.4-alpha logs the **actual runtime preferences** at startup, and (when `Diagnostics=true`) a **Growth status** line approximately every 30 seconds. Check `plantsEnabled`, `endOfDay`, `sampleAgeSeconds`, `plantMethod`, and `enumerator`. A false flag or stale end-of-day observation explains why no growth attempt occurs.
 
 No change to payroll: wages remain exclusively the game's responsibility.
 
