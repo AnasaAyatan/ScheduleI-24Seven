@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.7-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.8-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -38,6 +38,14 @@ public sealed class Mod : MelonMod
     private static Type? _timeType;
     private static Type? _plantType;
     private static Type? _employeeType;
+    private static Type? _botanistType;
+    private static MethodInfo? _getPotForWatering;
+    private static MethodInfo? _assignWatering;
+    private static FieldInfo? _waterBehaviourField;
+    private static FieldInfo? _workBehavioursField;
+    private static PropertyInfo? _isServer;
+    private static bool _botanistErrorLogged;
+    private static double _nextBotanistTrace;
     private static MethodInfo? _plantMinutes;
     private static MethodInfo? _setGrowthProgress;
     private static PropertyInfo? _getGrowthProgress;
@@ -54,6 +62,7 @@ public sealed class Mod : MelonMod
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
+    private static MelonPreferences_Entry<bool> _botanistWatering = null!;
     private static MelonPreferences_Entry<bool> _protectWater = null!;
     private static MelonPreferences_Entry<bool> _diagnostics = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
@@ -67,6 +76,8 @@ public sealed class Mod : MelonMod
         _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true, "Employees work after 4 AM");
         _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", false,
             "Plants grow after 4 AM", "Opt in after backing up a save. Experimental IL2CPP enumeration.");
+        _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", false,
+            "Continue botanist watering after 4 AM", "Experimental: idle, server-authoritative botanists resume assigned pot watering.");
         _diagnostics = prefs.CreateEntry("Diagnostics", true, "Detailed diagnostic logs");
         _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Protect pot moisture after 4 AM", "Suppresses pot minute updates during frozen time.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f, "Growth update interval (seconds)");
@@ -86,6 +97,7 @@ public sealed class Mod : MelonMod
                   ?? AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Plant");
         _timeType = AccessTools.TypeByName("Il2CppScheduleOne.GameTime.TimeManager");
         _harmony = new HarmonyLib.Harmony("com.anasaayatan.schedulei24seven");
+        InitializeBotanistPatch();
         // Observe the live game instance rather than invoking a non-static getter on null.
         var getter = _timeType?.GetProperty("IsEndOfDay", All)?.GetGetMethod(true);
         if (getter != null && getter.ReturnType == typeof(bool))
@@ -194,11 +206,83 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.7-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.8-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
         _previousPlantEnabled = _plantEnabled.Value;
+    }
+
+    private static void InitializeBotanistPatch()
+    {
+        _botanistType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Botanist");
+        if (_botanistType == null) { MelonLogger.Warning("Botanist wrapper missing; after-hours watering disabled."); return; }
+        var update = _botanistType.GetMethod("UpdateBehaviour", All, null, Type.EmptyTypes, null);
+        _getPotForWatering = _botanistType.GetMethods(All).FirstOrDefault(m =>
+            m.Name == "GetPotForWatering" && m.GetParameters().Length == 1 &&
+            m.GetParameters()[0].ParameterType == typeof(float));
+        _waterBehaviourField = _botanistType.GetField("_waterPotBehaviour", All);
+        _workBehavioursField = _botanistType.GetField("_workBehaviours", All);
+        _isServer = _botanistType.GetProperty("IsServer", All) ??
+                    _botanistType.BaseType?.GetProperty("IsServer", All);
+        var behaviourType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Behaviours.GrowContainerBehaviour");
+        _assignWatering = behaviourType?.GetMethods(All).FirstOrDefault(m =>
+            m.Name == "AssignAndEnable" && m.GetParameters().Length == 1);
+        if (update == null || _getPotForWatering == null || _waterBehaviourField == null ||
+            _workBehavioursField == null || _isServer == null || _assignWatering == null)
+        {
+            MelonLogger.Warning($"Botanist watering API incomplete: update={update != null}, getPot={_getPotForWatering != null}, waterBehaviour={_waterBehaviourField != null}, activeWork={_workBehavioursField != null}, isServer={_isServer != null}, assign={_assignWatering != null}. No watering patch applied.");
+            return;
+        }
+        try
+        {
+            _harmony!.Patch(update, postfix: new HarmonyMethod(typeof(BotanistPatch), nameof(BotanistPatch.Postfix)));
+            MelonLogger.Msg("Experimental Botanist.UpdateBehaviour() watering fallback installed (disabled until enabled in settings).");
+        }
+        catch (Exception e) { MelonLogger.Warning("Botanist patch failed: " + e.Message); }
+    }
+
+    public static class BotanistPatch
+    {
+        public static void Postfix(object __instance)
+        {
+            if (!_botanistWatering.Value || !_employeeEnabled.Value || !EndOfDay()) return;
+            try
+            {
+                if (_isServer?.GetValue(__instance) is not true) return;
+                // Never interrupt another job. If the IL2CPP list cannot be
+                // inspected, fail closed rather than risking job reassignment.
+                object? work = _workBehavioursField?.GetValue(__instance);
+                if (work == null) return;
+                bool observedAny = false;
+                foreach (var b in EnumeratePlants(work))
+                {
+                    observedAny = true;
+                    var active = b.GetType().GetProperty("Active", All);
+                    if (active == null) return;
+                    if (active.GetValue(b) is true) return;
+                }
+                if (!observedAny) return;
+                object? pot = _getPotForWatering?.Invoke(__instance, new object[] { 0.01f });
+                if (pot == null) return;
+                object? behaviour = _waterBehaviourField?.GetValue(__instance);
+                if (behaviour == null) return;
+                _assignWatering?.Invoke(behaviour, new[] { pot });
+                if (_diagnostics.Value && Watch.Elapsed.TotalSeconds >= _nextBotanistTrace)
+                {
+                    _nextBotanistTrace = Watch.Elapsed.TotalSeconds + 30;
+                    MelonLogger.Msg("After-hours botanist assigned a pot for real NPC watering.");
+                }
+            }
+            catch (Exception e)
+            {
+                if (!_botanistErrorLogged)
+                {
+                    _botanistErrorLogged = true;
+                    MelonLogger.Warning("Botanist after-hours watering fallback failed closed: " + e);
+                }
+            }
+        }
     }
 
     private static string PreferencesJson()
@@ -206,6 +290,7 @@ public sealed class Mod : MelonMod
         var current = new
         {
             EmployeesAtEndOfDay = _employeeEnabled.Value,
+            BotanistWateringAfter4AM = _botanistWatering.Value,
             PlantGrowthAtEndOfDay = _plantEnabled.Value,
             ProtectWaterDuringFrozenGrowth = _protectWater.Value,
             Diagnostics = _diagnostics.Value,
@@ -276,6 +361,7 @@ public sealed class Mod : MelonMod
             // Parse the full file before applying anything, so invalid JSON
             // cannot partially overwrite live preferences.
             _employeeEnabled.Value = ReadBool("EmployeesAtEndOfDay", _employeeEnabled.Value);
+            _botanistWatering.Value = ReadBool("BotanistWateringAfter4AM", _botanistWatering.Value);
             _plantEnabled.Value = ReadBool("PlantGrowthAtEndOfDay", _plantEnabled.Value);
             _protectWater.Value = ReadBool("ProtectWaterDuringFrozenGrowth", _protectWater.Value);
             _diagnostics.Value = ReadBool("Diagnostics", _diagnostics.Value);
