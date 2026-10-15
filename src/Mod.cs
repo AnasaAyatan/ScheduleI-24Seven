@@ -27,7 +27,7 @@ public sealed class Mod : MelonMod
     private static Type? _employeeType;
     private static MethodInfo? _plantMinutes;
     private static MethodInfo? _findPlants;
-    private static Harmony? _harmony;
+    private static HarmonyLib.Harmony? _harmony;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
@@ -47,7 +47,7 @@ public sealed class Mod : MelonMod
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
                   ?? AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Plant");
         _timeType = AccessTools.TypeByName("Il2CppScheduleOne.GameTime.TimeManager");
-        _harmony = new Harmony("com.anasaayatan.schedulei24seven");
+        _harmony = new HarmonyLib.Harmony("com.anasaayatan.schedulei24seven");
 
         if (_employeeType != null)
         {
