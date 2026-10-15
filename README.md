@@ -1,66 +1,65 @@
-# Schedule I 24/7 (compatibility prototype)
+# Schedule I 24/7 — development build
 
-Independent, source-first project for Schedule I **IL2CPP** on Windows with MelonLoader.
+Independent MelonLoader / Harmony prototype for Schedule I IL2CPP, designed around the reported **v0.4.7f12** installation.
 
-## Status — 0.1.0-alpha
+## Build status
 
-**Not a drop-in replacement yet. Not tested or built against game version 0.4.7f12.**
+**Version 0.2.0-alpha — source code only; not compiled or validated in-game.** This branch is experimental. Do not publish this as a working replacement yet.
 
-| Original feature | Current implementation |
-|---|---|
-| Employees allowed to work at end-of-day | Harmony `Employee.CanWork` prefix, guarded by reflective end-of-day detection; **untested** |
-| Plants grow during 4 AM time freeze | Experimental tick scaffold; **NOT functional / disabled** until IL2CPP plant enumeration is validated |
-| Employees collect wages every 24 minutes during end-of-day | **NOT implemented** (must find safe game payment API to avoid double-charging) |
-| Normal daytime behaviour unchanged | Prefix falls through when end-of-day is not detected |
+| Feature | Implementation | Reliability |
+|---|---|---|
+| Employee work at end of day | Harmony prefix on parameterless `Employee.CanWork()`, with runtime end-of-day detection | Experimental; bypasses other eligibility checks |
+| Plant growth while game time is frozen | Uses discovered `Plant.MinPass(int)` and generic Unity plant enumeration | Experimental; disabled by default, may be unavailable on IL2CPP |
+| Wage deduction every 24 minutes during freeze | Not implemented | Awaiting verified game wage API |
+| Normal game hours | Employee prefix falls through to original implementation | Unverified |
+| Safety | Fail-closed method detection, exceptions logged, failing plant simulation disabled | Requires game testing |
 
-The old release calls `Employee.GetBed()` and crashes with `MissingMethodException` under v0.4.7f12. This source avoids that removed method, but is **not** yet proof of compatibility or equivalent features.
+## Local prerequisites
 
-## Prerequisites
+- Steam game version matching your locally generated IL2CPP wrappers
+- MelonLoader 0.7.3
+- .NET 6 SDK
+- The repository's NuGet references; game-specific generated wrappers may require additional local-only references
 
-- Steam Schedule I, default IL2CPP branch (user log reports v0.4.7f12)
-- MelonLoader 0.7.3 (user log)
-- .NET 6 SDK for compiling
-- `LavaGang.MelonLoader` and `Lib.Harmony` NuGet packages
+## Build
 
-## Build (PowerShell)
+From the repository root in PowerShell:
 
 ```powershell
+git fetch origin
+git switch development/24-seven-runtime
 dotnet restore
 dotnet build -c Release
 ```
 
-If NuGet package resolution or game-specific Unity reference errors occur, reference the assemblies generated on **your own PC** in `Schedule I\MelonLoader\Il2CppAssemblies` and `Schedule I\MelonLoader\net6`, and adjust `ScheduleI24Seven.csproj`. Do not commit redistributed game DLLs.
+The build may fail without the locally generated game/Unity IL2CPP assembly references. Do **not** commit game or MelonLoader binaries. See your local `Schedule I/MelonLoader/Il2CppAssemblies` directory and share compile errors instead.
 
-## Install for testing
+## Test carefully
 
 1. Back up your save.
-2. Remove `Employee Always Work & Plants Always Grow v2.0.0.dll` from `Schedule I\Mods` to prevent conflicts.
-3. Build the project, then place `bin\Release\net6.0\ScheduleI24Seven.dll` in the game's `Mods` folder.
-4. Launch and inspect `MelonLoader\Latest.log` for `24/7 alpha initialized` and `Patched` lines.
-5. Verify employee behaviour during the 4 AM freeze, not just at startup. Do not enable plant ticking yet.
+2. Remove the older conflicting `Employee Always Work & Plants Always Grow v2.0.0.dll` from `Mods`.
+3. Install the built DLL in `Mods`.
+4. Inspect `MelonLoader/Latest.log` for patch and API-detection messages.
+5. Check 4 AM behavior with one employee before testing plants.
+6. To opt into plant ticking, set `PlantGrowthAtEndOfDay` to `true` in MelonPreferences, then restart. **This may not work with generated IL2CPP reflection wrappers.**
 
 ## Configuration
 
-MelonPreferences writes preferences in `UserData\MelonPreferences.cfg`.
+Category: `ScheduleI24Seven`
 
-- `EmployeesAtEndOfDay` — true (experimental)
-- `PlantGrowthAtEndOfDay` — false until IL2CPP enumeration is completed
-- `Diagnostics` — true
-- `SecondsPerPlantMinute` — 60
+- `EmployeesAtEndOfDay`: true
+- `PlantGrowthAtEndOfDay`: false
+- `Diagnostics`: true
+- `SecondsPerPlantMinute`: 60
 
-## Compatibility TODOs
+## Remaining work
 
-- [ ] Inspect `Il2CppScheduleOne.GameTime.TimeManager` in v0.4.7f12 and determine actual end-of-day flag.
-- [ ] Confirm `Employee.CanWork` signature and verify existing bed and wage eligibility checks.
-- [ ] Implement plant enumeration and `MinPass` equivalent via supported generated IL2CPP types.
-- [ ] Locate and safely invoke game's wage mechanism every 24 game minutes during end-of-day; test against double deductions.
-- [ ] Multiplayer host/client authority tests; save/reload regression tests.
-- [ ] Compile and test a release artifact against v0.4.7f12.
+- Verify actual current game end-of-day API and signatures
+- Safely retain employee bed, wage and assignment requirements
+- Confirm IL2CPP plant enumeration and growth simulation
+- Implement once-per-24-minute wage deductions with no duplicate charges
+- Compile with local game DLLs and test single-player/multiplayer host authority
 
-## Attribution
+## Attribution and licensing
 
-Independent prototype; **does not incorporate code or assets from the Nexus mod**. References for research: [Schedule I IL2CPP example](https://github.com/EndureBlackout/schedule-il2cpp-example), [PlantsAlwaysGrow](https://github.com/lasersquid/Sched1PlantsAlwaysGrowMod).
-
-## License
-
-No public reuse license has been granted. All rights reserved pending the owner's choice of license.
+Independent implementation. No source or game binaries copied from the original Nexus release. No reuse license granted; all rights reserved until the repository owner selects one.
