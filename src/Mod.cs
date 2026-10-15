@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.1-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.2-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -25,12 +25,18 @@ public sealed class Mod : MelonMod
     private static bool _cachedEndOfDay;
     private static double _lastEndOfDaySample = -1;
     private static bool _reportedMissingPlant;
+    private static bool _nativeRateWarning;
     private static Type? _timeType;
     private static Type? _plantType;
     private static Type? _employeeType;
     private static MethodInfo? _plantMinutes;
     private static MethodInfo? _setGrowthProgress;
     private static PropertyInfo? _getGrowthProgress;
+    private static PropertyInfo? _growthTime;
+    private static PropertyInfo? _plantPot;
+    private static MethodInfo? _getLightExposure;
+    private static MethodInfo? _getTemperatureMultiplier;
+    private static PropertyInfo? _getPotSpeed;
     private static PropertyInfo? _potMoisture;
     private static MethodInfo? _potMinuteMethod;
     private static bool _moisturePatchReady;
@@ -43,6 +49,7 @@ public sealed class Mod : MelonMod
     private static MelonPreferences_Entry<bool> _diagnostics = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
     private static MelonPreferences_Entry<float> _growthPerMinute = null!;
+    private static MelonPreferences_Entry<float> _afterHoursBoost = null!;
 
     public override void OnInitializeMelon()
     {
@@ -53,6 +60,8 @@ public sealed class Mod : MelonMod
         _diagnostics = prefs.CreateEntry("Diagnostics", true);
         _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Blocks unverified water-consuming growth simulation.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
+        _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
+            "5 percent growth boost during end-of-day; clamped between 1.0 and 1.25.");
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
             "Experimental fraction of growth per simulated minute, capped at 0.05.");
 
@@ -99,6 +108,8 @@ public sealed class Mod : MelonMod
             && m.GetParameters()[0].ParameterType == typeof(int));
         _setGrowthProgress = _plantType?.GetMethod("SetNormalizedGrowthProgress", All, null, new[] { typeof(float) }, null);
         _getGrowthProgress = _plantType?.GetProperty("NormalizedGrowthProgress", All);
+        _growthTime = _plantType?.GetProperty("GrowthTime", All);
+        _plantPot = _plantType?.GetProperty("Pot", All);
         if (_plantMinutes == null)
             MelonLogger.Warning("Plant.MinPass(int) not found. Plant growth will be unavailable.");
 
@@ -136,6 +147,11 @@ public sealed class Mod : MelonMod
         }
         else MelonLogger.Warning("Pot.OnMinPass() not found: cannot guarantee frozen-period water preservation.");
 
+        var growContainer = AccessTools.TypeByName("Il2CppScheduleOne.Growing.GrowContainer");
+        _getLightExposure = growContainer?.GetMethods(All).FirstOrDefault(m =>
+            m.Name == "GetAverageLightExposure" && m.GetParameters().Length == 1);
+        _getTemperatureMultiplier = growContainer?.GetMethod("GetTemperatureGrowthMultiplier", All, null, Type.EmptyTypes, null);
+        _getPotSpeed = potTypeForPatch?.GetProperty("GrowSpeedMultiplier", All);
         if (_diagnostics.Value)
         {
             Dump(_timeType, "EndOfDay");
@@ -162,10 +178,10 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.1-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.2-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
-                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}.");
+                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}.");
         _previousPlantEnabled = _plantEnabled.Value;
     }
 
@@ -249,7 +265,7 @@ public sealed class Mod : MelonMod
                     var raw = _getGrowthProgress!.GetValue(plant);
                     if (raw is not float currentProgress || !float.IsFinite(currentProgress)
                         || currentProgress >= 1f) continue;
-                    var increment = Math.Clamp(_growthPerMinute.Value, 0f, 0.05f) * minutes;
+                    float increment = CalculatePlantGrowth(plant, minutes);
                     if (increment <= 0) continue;
                     float target = Math.Min(1f, Math.Max(0f, currentProgress) + increment);
                     _setGrowthProgress!.Invoke(plant, new object[] { target });
@@ -272,6 +288,42 @@ public sealed class Mod : MelonMod
                 _reportedEnumeratorError = true;
             }
             _plantEnabled.Value = false;
+        }
+    }
+
+    private static float CalculatePlantGrowth(object plant, int minutes)
+    {
+        float boost = Math.Clamp(_afterHoursBoost.Value, 1f, 1.25f);
+        // The native calculation is based on the plant's own growth duration,
+        // temperature, light exposure, and pot growth-speed multiplier.
+        // If the game wrapper is missing a required member, preserve the
+        // previously tested fixed rate instead of guessing a different one.
+        try
+        {
+            if (_growthTime == null || _plantPot == null || _getLightExposure == null
+                || _getTemperatureMultiplier == null || _getPotSpeed == null)
+                throw new MissingMemberException("Native growth APIs unavailable.");
+            float hours = Convert.ToSingle(_growthTime.GetValue(plant));
+            if (!float.IsFinite(hours) || hours <= 0) throw new InvalidOperationException("Invalid growth duration.");
+            var pot = _plantPot.GetValue(plant);
+            if (pot == null) throw new InvalidOperationException("Missing plant pot.");
+            object[] args = { 0f };
+            float light = Convert.ToSingle(_getLightExposure.Invoke(pot, args));
+            float lightFactor = Convert.ToSingle(args[0]);
+            float temperature = Convert.ToSingle(_getTemperatureMultiplier.Invoke(pot, Array.Empty<object>()));
+            float potSpeed = Convert.ToSingle(_getPotSpeed.GetValue(pot));
+            float result = (minutes / (hours * 60f)) * light * lightFactor * temperature * potSpeed * boost;
+            if (!float.IsFinite(result)) throw new InvalidOperationException("Invalid native growth increment.");
+            return Math.Clamp(result, 0f, 1f);
+        }
+        catch (Exception e)
+        {
+            if (!_nativeRateWarning)
+            {
+                _nativeRateWarning = true;
+                MelonLogger.Warning("Native plant growth rate unavailable; using previous fixed-rate fallback: " + e.Message);
+            }
+            return Math.Clamp(_growthPerMinute.Value, 0f, 0.05f) * minutes * boost;
         }
     }
 
