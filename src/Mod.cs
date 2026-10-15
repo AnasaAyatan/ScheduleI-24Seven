@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.2-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.3-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -26,6 +26,8 @@ public sealed class Mod : MelonMod
     private static double _lastEndOfDaySample = -1;
     private static bool _reportedMissingPlant;
     private static bool _nativeRateWarning;
+    private static bool _invalidBoostWarning;
+    private static bool _highBoostWarning;
     private static Type? _timeType;
     private static Type? _plantType;
     private static Type? _employeeType;
@@ -61,7 +63,7 @@ public sealed class Mod : MelonMod
         _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Blocks unverified water-consuming growth simulation.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
         _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
-            "5 percent growth boost during end-of-day; clamped between 1.0 and 1.25.");
+            "5 percent default boost during end-of-day; any positive finite multiplier allowed.");
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
             "Experimental fraction of growth per simulated minute, capped at 0.05.");
 
@@ -178,7 +180,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.2-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.3-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}.");
@@ -293,7 +295,21 @@ public sealed class Mod : MelonMod
 
     private static float CalculatePlantGrowth(object plant, int minutes)
     {
-        float boost = Math.Clamp(_afterHoursBoost.Value, 1f, 1.25f);
+        float boost = _afterHoursBoost.Value;
+        if (!float.IsFinite(boost) || boost <= 0f)
+        {
+            if (!_invalidBoostWarning)
+            {
+                _invalidBoostWarning = true;
+                MelonLogger.Warning("Invalid AfterHoursGrowthMultiplier; using 1.0.");
+            }
+            boost = 1f;
+        }
+        else if (boost > 2f && !_highBoostWarning)
+        {
+            _highBoostWarning = true;
+            MelonLogger.Warning($"High after-hours growth multiplier ({boost}x) can skip growth stages.");
+        }
         // The native calculation is based on the plant's own growth duration,
         // temperature, light exposure, and pot growth-speed multiplier.
         // If the game wrapper is missing a required member, preserve the
