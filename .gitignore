@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.log
+*.dll
+*.pdb
+*.zip
+libs/
+game-libs/
+MelonLoader/
+UserData/
