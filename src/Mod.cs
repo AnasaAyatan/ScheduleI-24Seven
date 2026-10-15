@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.0-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.1-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -21,12 +21,9 @@ public sealed class Mod : MelonMod
     private static double _nextStatusLog;
     private static bool _previousFrozen;
     private static bool _previousPlantEnabled;
-    private static bool _waterWarning;
     private static bool _reportedEnumeratorError;
-    private static bool _reportedTimeError;
     private static bool _cachedEndOfDay;
     private static double _lastEndOfDaySample = -1;
-    private static bool _reportedMissingTime;
     private static bool _reportedMissingPlant;
     private static Type? _timeType;
     private static Type? _plantType;
@@ -35,7 +32,7 @@ public sealed class Mod : MelonMod
     private static MethodInfo? _setGrowthProgress;
     private static PropertyInfo? _getGrowthProgress;
     private static PropertyInfo? _potMoisture;
-    private static MethodInfo? _potMoistureSetter;
+    private static MethodInfo? _potMinuteMethod;
     private static bool _moisturePatchReady;
     private static MethodInfo? _findPlants;
     private static HarmonyLib.Harmony? _harmony;
@@ -56,8 +53,8 @@ public sealed class Mod : MelonMod
         _diagnostics = prefs.CreateEntry("Diagnostics", true);
         _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Blocks unverified water-consuming growth simulation.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
-        _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.001f,
-            "Experimental fraction of growth per simulated minute, capped at 0.01.");
+        _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
+            "Experimental fraction of growth per simulated minute, capped at 0.05.");
 
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
@@ -120,25 +117,24 @@ public sealed class Mod : MelonMod
             catch (Exception e) { MelonLogger.Warning("Plant enumeration unavailable: " + e.Message); _findPlants = null; }
         }
 
-        // Clamp moisture changes only during the end-of-day freeze. Employees may
-        // increase moisture through the game's normal watering logic; decreases
-        // through the discovered setter are blocked. No forced refills.
+        // Previous build patched an IL2CPP field accessor, which Harmony cannot hook.
+        // Pot.OnMinPass is a real game method. Suppressing it in the 4 AM freeze
+        // prevents its time-driven moisture drain while leaving normal bot
+        // watering/RPC operations to the game. This also pauses other pot minute logic.
         var potTypeForPatch = AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Pot");
-        _potMoisture = potTypeForPatch?.GetProperty("_currentMoistureAmount", All);
-        _potMoistureSetter = _potMoisture?.GetSetMethod(true);
-        if (_potMoisture?.GetGetMethod(true) != null && _potMoistureSetter != null
-            && _potMoisture.PropertyType == typeof(float))
+        _potMinuteMethod = potTypeForPatch?.GetMethod("OnMinPass", All, null, Type.EmptyTypes, null);
+        if (_potMinuteMethod != null && _potMinuteMethod.DeclaringType != null)
         {
             try
             {
-                _harmony.Patch(_potMoistureSetter, prefix: new HarmonyMethod(typeof(MoisturePatch),
-                    nameof(MoisturePatch.Prefix)));
+                _harmony.Patch(_potMinuteMethod, prefix: new HarmonyMethod(typeof(PotMinutePatch),
+                    nameof(PotMinutePatch.Prefix)));
                 _moisturePatchReady = true;
-                MelonLogger.Msg("Patched Pot moisture setter to prevent decreases during end-of-day.");
+                MelonLogger.Msg("Patched Pot.OnMinPass() to suppress frozen-period minute updates.");
             }
-            catch (Exception e) { MelonLogger.Error("Pot moisture patch failed: " + e); }
+            catch (Exception e) { MelonLogger.Error("Pot minute patch failed: " + e); }
         }
-        else MelonLogger.Warning("Pot moisture setter not found; water protection cannot be guaranteed.");
+        else MelonLogger.Warning("Pot.OnMinPass() not found: cannot guarantee frozen-period water preservation.");
 
         if (_diagnostics.Value)
         {
@@ -166,7 +162,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.0-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.1-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}.");
@@ -253,10 +249,15 @@ public sealed class Mod : MelonMod
                     var raw = _getGrowthProgress!.GetValue(plant);
                     if (raw is not float currentProgress || !float.IsFinite(currentProgress)
                         || currentProgress >= 1f) continue;
-                    var increment = Math.Clamp(_growthPerMinute.Value, 0f, 0.01f) * minutes;
+                    var increment = Math.Clamp(_growthPerMinute.Value, 0f, 0.05f) * minutes;
                     if (increment <= 0) continue;
-                    _setGrowthProgress!.Invoke(plant,
-                        new object[] { Math.Min(1f, Math.Max(0f, currentProgress) + increment) });
+                    float target = Math.Min(1f, Math.Max(0f, currentProgress) + increment);
+                    _setGrowthProgress!.Invoke(plant, new object[] { target });
+                    if (_diagnostics.Value && count == 0)
+                    {
+                        var observed = _getGrowthProgress.GetValue(plant);
+                        MelonLogger.Msg($"Plant growth check: before={currentProgress:F5}, requested={target:F5}, after={observed}.");
+                    }
                 }
                 else _plantMinutes!.Invoke(plant, new object[] { minutes });
                 count++;
@@ -295,25 +296,12 @@ public sealed class Mod : MelonMod
         }
     }
 
-    public static class MoisturePatch
+    public static class PotMinutePatch
     {
-        public static void Prefix(object __instance, ref float __0)
+        public static bool Prefix()
         {
-            if (!_protectWater.Value || !EndOfDay() || _potMoisture == null) return;
-            try
-            {
-                if (_potMoisture.GetValue(__instance) is float existing
-                    && float.IsFinite(existing) && float.IsFinite(__0))
-                    __0 = Math.Max(__0, existing);
-            }
-            catch (Exception e)
-            {
-                if (!_waterWarning)
-                {
-                    _waterWarning = true;
-                    MelonLogger.Warning("Unable to clamp pot moisture: " + e.Message);
-                }
-            }
+            // Do not suppress pot ticking during normal hours.
+            return !_protectWater.Value || !EndOfDay();
         }
     }
 
