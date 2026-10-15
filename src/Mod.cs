@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.6-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.7-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -32,6 +32,7 @@ public sealed class Mod : MelonMod
     private static double _nextJsonCheck;
     private static DateTime _lastJsonWrite = DateTime.MinValue;
     private static bool _jsonErrorReported;
+    private static string _lastPreferencesSnapshot = "";
     private static bool _invalidBoostWarning;
     private static bool _highBoostWarning;
     private static Type? _timeType;
@@ -62,22 +63,23 @@ public sealed class Mod : MelonMod
 
     public override void OnInitializeMelon()
     {
-        var prefs = MelonPreferences.CreateCategory("ScheduleI24Seven");
-        _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true);
+        var prefs = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7");
+        _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true, "Employees work after 4 AM");
         _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", false,
-            "Opt in after checking logs and backing up a save. Experimental IL2CPP enumeration.");
-        _diagnostics = prefs.CreateEntry("Diagnostics", true);
-        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Blocks unverified water-consuming growth simulation.");
-        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
+            "Plants grow after 4 AM", "Opt in after backing up a save. Experimental IL2CPP enumeration.");
+        _diagnostics = prefs.CreateEntry("Diagnostics", true, "Detailed diagnostic logs");
+        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Protect pot moisture after 4 AM", "Suppresses pot minute updates during frozen time.");
+        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f, "Growth update interval (seconds)");
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
-            "Number of real seconds per simulated game minute during frozen time. Default 1.");
+            "Real seconds per game minute", "Time conversion for frozen growth. Default 1.");
         _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
-            "5 percent default boost during end-of-day; any positive finite multiplier allowed.");
+            "After-hours growth multiplier", "Default 1.05 (5 percent boost); any positive finite multiplier allowed.");
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
-            "Experimental fraction of growth per simulated minute, capped at 0.05.");
+            "Fallback growth per interval", "Used only if native growth APIs fail; capped at 0.05.");
 
         _jsonPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "UserData"), "ScheduleI24Seven.json");
         InitializeJson();
+        _lastPreferencesSnapshot = PreferencesJson();
 
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
@@ -192,11 +194,50 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.6-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.7-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
         _previousPlantEnabled = _plantEnabled.Value;
+    }
+
+    private static string PreferencesJson()
+    {
+        var current = new
+        {
+            EmployeesAtEndOfDay = _employeeEnabled.Value,
+            PlantGrowthAtEndOfDay = _plantEnabled.Value,
+            ProtectWaterDuringFrozenGrowth = _protectWater.Value,
+            Diagnostics = _diagnostics.Value,
+            SecondsPerPlantMinute = _secondsPerMinute.Value,
+            RealSecondsPerGameMinute = _realSecondsPerGameMinute.Value,
+            NormalizedGrowthPerMinute = _growthPerMinute.Value,
+            AfterHoursGrowthMultiplier = _afterHoursBoost.Value
+        };
+        return JsonSerializer.Serialize(current, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static void SynchronizeSettings()
+    {
+        // Phone Mod Manager edits MelonPreferences entries directly and writes
+        // UserData/MelonPreferences.cfg. Mirror those changes into JSON so the
+        // two editors don't disagree. File changes from the JSON editor are
+        // imported when no newer live preference edit is pending.
+        string snapshot = PreferencesJson();
+        if (snapshot != _lastPreferencesSnapshot)
+        {
+            try
+            {
+                File.WriteAllText(_jsonPath, snapshot);
+                _lastJsonWrite = File.GetLastWriteTimeUtc(_jsonPath);
+                _lastPreferencesSnapshot = snapshot;
+                MelonLogger.Msg("Saved phone preferences to JSON mirror.");
+            }
+            catch (Exception e) { MelonLogger.Warning("JSON mirror write failed: " + e.Message); }
+            return;
+        }
+        ReloadJsonIfChanged();
+        _lastPreferencesSnapshot = PreferencesJson();
     }
 
     private static void InitializeJson()
@@ -206,19 +247,7 @@ public sealed class Mod : MelonMod
             Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "UserData"));
             if (!File.Exists(_jsonPath))
             {
-                var defaults = new
-                {
-                    EmployeesAtEndOfDay = _employeeEnabled.Value,
-                    PlantGrowthAtEndOfDay = _plantEnabled.Value,
-                    ProtectWaterDuringFrozenGrowth = _protectWater.Value,
-                    Diagnostics = _diagnostics.Value,
-                    SecondsPerPlantMinute = _secondsPerMinute.Value,
-                    RealSecondsPerGameMinute = _realSecondsPerGameMinute.Value,
-                    NormalizedGrowthPerMinute = _growthPerMinute.Value,
-                    AfterHoursGrowthMultiplier = _afterHoursBoost.Value
-                };
-                File.WriteAllText(_jsonPath, JsonSerializer.Serialize(defaults,
-                    new JsonSerializerOptions { WriteIndented = true }));
+                File.WriteAllText(_jsonPath, PreferencesJson());
             }
             ReloadJsonIfChanged();
             MelonLogger.Msg("Editable phone JSON configuration: " + _jsonPath);
@@ -298,7 +327,7 @@ public sealed class Mod : MelonMod
         if (current >= _nextJsonCheck)
         {
             _nextJsonCheck = current + 2;
-            ReloadJsonIfChanged();
+            SynchronizeSettings();
         }
         var elapsed = _lastSeconds <= 0 ? 0 : Math.Clamp(current - _lastSeconds, 0, 1);
         _lastSeconds = current;
