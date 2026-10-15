@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.1-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.2-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -18,6 +18,9 @@ public sealed class Mod : MelonMod
     private static readonly System.Diagnostics.Stopwatch Watch = System.Diagnostics.Stopwatch.StartNew();
     private static double _lastSeconds;
     private static double _minuteCarry;
+    private static double _nextStatusLog;
+    private static bool _previousFrozen;
+    private static bool _previousPlantEnabled;
     private static bool _reportedEnumeratorError;
     private static bool _reportedTimeError;
     private static bool _cachedEndOfDay;
@@ -113,8 +116,11 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.3.1-alpha loaded; wages handled only by the unmodified game. " +
-                        "Plant ticking is experimental and off by default.");
+        MelonLogger.Msg("Schedule I 24/7 v0.3.2-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
+                        $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
+                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}.");
+        _previousPlantEnabled = _plantEnabled.Value;
     }
 
     private static void Dump(Type? type, string fragment)
@@ -147,6 +153,20 @@ public sealed class Mod : MelonMod
         var elapsed = _lastSeconds <= 0 ? 0 : Math.Clamp(current - _lastSeconds, 0, 1);
         _lastSeconds = current;
         bool frozen = EndOfDay();
+        if (_diagnostics.Value)
+        {
+            if (frozen != _previousFrozen || _plantEnabled.Value != _previousPlantEnabled || current >= _nextStatusLog)
+            {
+                MelonLogger.Msg($"Growth status: plantsEnabled={_plantEnabled.Value}, endOfDay={frozen}, " +
+                                $"observedEndOfDay={_cachedEndOfDay}, sampleAgeSeconds=" +
+                                $"{(_lastEndOfDaySample < 0 ? -1 : current - _lastEndOfDaySample):F1}, " +
+                                $"elapsedCarry={_minuteCarry:F1}, plantMethod={_plantMinutes != null}, " +
+                                $"enumerator={_findPlants != null}.");
+                _nextStatusLog = current + 30;
+                _previousFrozen = frozen;
+                _previousPlantEnabled = _plantEnabled.Value;
+            }
+        }
         if (!_plantEnabled.Value || !frozen)
         {
             _minuteCarry = 0;
