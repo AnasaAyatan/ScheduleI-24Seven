@@ -54,6 +54,21 @@ MelonLoader settings: `UserData\MelonPreferences.cfg`, category `ScheduleI24Seve
 
 **There are no wage-related settings.** If an older settings file contains `EndOfDayWages` or `WageDryRun`, those entries are ignored; you can remove them.
 
+## Plant growth test preset
+
+The repository includes [`config/plant-growth-test.cfg`](config/plant-growth-test.cfg) as an **example**, with plant simulation enabled and employees enabled. It does not activate automatically when you pull the repository, and it is **not** a replacement for your entire MelonPreferences file.
+
+To test, close the game, open `Schedule I/UserData/MelonPreferences.cfg`, and update only these entries inside `[ScheduleI24Seven]`:
+
+```ini
+EmployeesAtEndOfDay = true
+PlantGrowthAtEndOfDay = true
+SecondsPerPlantMinute = 60
+Diagnostics = true
+```
+
+Back up your save before enabling experimental plant ticking. The mod does not change the game's day-transition wage behavior.
+
 ## Test plan
 
 1. Confirm employees continue working through 4 AM.
