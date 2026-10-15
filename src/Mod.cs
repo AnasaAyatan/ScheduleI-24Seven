@@ -20,6 +20,8 @@ public sealed class Mod : MelonMod
     private static double _minuteCarry;
     private static bool _reportedEnumeratorError;
     private static bool _reportedTimeError;
+    private static bool _cachedEndOfDay;
+    private static double _lastEndOfDaySample = -1;
     private static bool _reportedMissingTime;
     private static bool _reportedMissingPlant;
     private static Type? _timeType;
@@ -48,6 +50,20 @@ public sealed class Mod : MelonMod
                   ?? AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Plant");
         _timeType = AccessTools.TypeByName("Il2CppScheduleOne.GameTime.TimeManager");
         _harmony = new HarmonyLib.Harmony("com.anasaayatan.schedulei24seven");
+        // Observe the live game instance rather than invoking a non-static getter on null.
+        var getter = _timeType?.GetProperty("IsEndOfDay", All)?.GetGetMethod(true);
+        if (getter != null && getter.ReturnType == typeof(bool))
+        {
+            try
+            {
+                _harmony.Patch(getter, postfix: new HarmonyMethod(typeof(TimePatch),
+                    nameof(TimePatch.Postfix)));
+                MelonLogger.Msg("Patched TimeManager.IsEndOfDay getter for live state observation.");
+            }
+            catch (Exception e) { MelonLogger.Error("TimeManager getter patch failed: " + e); }
+        }
+        else MelonLogger.Warning("End-of-day getter unavailable; employee patch will fail closed.");
+
 
         if (_employeeType != null)
         {
@@ -111,30 +127,18 @@ public sealed class Mod : MelonMod
 
     private static bool EndOfDay()
     {
-        if (_timeType == null)
+        // Fail closed if no recent game-side sample is available.
+        return _cachedEndOfDay && _lastEndOfDaySample >= 0 &&
+               Watch.Elapsed.TotalSeconds - _lastEndOfDaySample < 3.0;
+    }
+
+    public static class TimePatch
+    {
+        public static void Postfix(bool __result)
         {
-            if (!_reportedMissingTime) { MelonLogger.Warning("TimeManager not found; 24/7 patches inactive."); _reportedMissingTime = true; }
-            return false;
+            _cachedEndOfDay = __result;
+            _lastEndOfDaySample = Watch.Elapsed.TotalSeconds;
         }
-        try
-        {
-            object? instance = _timeType.GetProperty("Instance", All)?.GetValue(null)
-                            ?? _timeType.GetField("Instance", All)?.GetValue(null);
-            foreach (string key in new[] { "IsEndOfDay", "isEndOfDay", "EndOfDay" })
-            {
-                var property = _timeType.GetProperty(key, All);
-                if (property?.PropertyType == typeof(bool))
-                    return (bool)(property.GetValue(property.GetMethod?.IsStatic == true ? null : instance) ?? false);
-                var field = _timeType.GetField(key, All);
-                if (field?.FieldType == typeof(bool))
-                    return (bool)(field.GetValue(field.IsStatic ? null : instance) ?? false);
-            }
-        }
-        catch (Exception e)
-        {
-            if (!_reportedTimeError) { MelonLogger.Warning("End-of-day check failed: " + e.Message); _reportedTimeError = true; }
-        }
-        return false;
     }
 
     public override void OnUpdate()
