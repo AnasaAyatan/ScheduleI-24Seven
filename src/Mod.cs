@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.2-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.3-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -21,6 +21,7 @@ public sealed class Mod : MelonMod
     private static double _nextStatusLog;
     private static bool _previousFrozen;
     private static bool _previousPlantEnabled;
+    private static bool _waterWarning;
     private static bool _reportedEnumeratorError;
     private static bool _reportedTimeError;
     private static bool _cachedEndOfDay;
@@ -36,6 +37,7 @@ public sealed class Mod : MelonMod
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
+    private static MelonPreferences_Entry<bool> _protectWater = null!;
     private static MelonPreferences_Entry<bool> _diagnostics = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
 
@@ -46,6 +48,7 @@ public sealed class Mod : MelonMod
         _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", false,
             "Opt in after checking logs and backing up a save. Experimental IL2CPP enumeration.");
         _diagnostics = prefs.CreateEntry("Diagnostics", true);
+        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Blocks unverified water-consuming growth simulation.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
 
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
@@ -113,13 +116,16 @@ public sealed class Mod : MelonMod
             Dump(_employeeType, "Wage");
             Dump(_employeeType, "Paid");
             Dump(_employeeType, "Bed");
+            Dump(_plantType, "Water");
+            Dump(_plantType, "Pot");
+            Dump(_plantType, "Soil");
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.3.2-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.3.3-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
-                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}.");
+                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}.");
         _previousPlantEnabled = _plantEnabled.Value;
     }
 
@@ -179,6 +185,20 @@ public sealed class Mod : MelonMod
                 MelonLogger.Warning("Plant ticking unavailable: required game API was not found.");
                 _reportedMissingPlant = true;
             }
+            return;
+        }
+
+        // Do not invoke MinPass while water effects are unknown.
+        // This fail-closed mode intentionally suspends plant simulation.
+        if (_protectWater.Value)
+        {
+            if (!_waterWarning)
+            {
+                MelonLogger.Warning("Plant growth suspended: ProtectWaterDuringFrozenGrowth is enabled. " +
+                    "Water-neutral growth requires confirmed game API.");
+                _waterWarning = true;
+            }
+            _minuteCarry = 0;
             return;
         }
 
