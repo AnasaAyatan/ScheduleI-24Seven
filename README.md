@@ -1,66 +1,77 @@
-# Schedule I 24/7 (compatibility prototype)
+# Schedule I 24/7
 
-Independent, source-first project for Schedule I **IL2CPP** on Windows with MelonLoader.
+Independent **Schedule I** (IL2CPP) MelonLoader mod for keeping employees working during the end-of-day 4 AM freeze, with opt-in experimental plant growth.
 
-## Status — 0.1.0-alpha
+## Current status — 0.3.1-alpha
 
-**Not a drop-in replacement yet. Not tested or built against game version 0.4.7f12.**
+Test environment: Schedule I **0.4.7f12** and MelonLoader **0.7.3 Open-Beta** on Windows 11.
 
-| Original feature | Current implementation |
+| Feature | Status |
 |---|---|
-| Employees allowed to work at end-of-day | Harmony `Employee.CanWork` prefix, guarded by reflective end-of-day detection; **untested** |
-| Plants grow during 4 AM time freeze | Experimental tick scaffold; **NOT functional / disabled** until IL2CPP plant enumeration is validated |
-| Employees collect wages every 24 minutes during end-of-day | **NOT implemented** (must find safe game payment API to avoid double-charging) |
-| Normal daytime behaviour unchanged | Prefix falls through when end-of-day is not detected |
+| Employees continue working during the 4 AM freeze | **Confirmed in user testing** |
+| Plants progress during the 4 AM freeze | **Experimental, disabled by default; not yet verified in-game** |
+| Wages at normal day transition | **Unmodified game behavior** |
+| Extra wages every 24 minutes at 4 AM | **Not present** |
 
-The old release calls `Employee.GetBed()` and crashes with `MissingMethodException` under v0.4.7f12. This source avoids that removed method, but is **not** yet proof of compatibility or equivalent features.
+**Wage policy:** This mod **does not modify payroll**. It does not call `Employee.RemoveDailyWage()`, change `Employee.PaidForToday`, intercept wage-deduction functions, or start any additional pay timer. The game remains responsible for its normal day-transition payroll. That transition's behavior should still be regression-tested in game.
 
-## Prerequisites
+The employee patch overrides `Employee.CanWork()` during detected end-of-day and may bypass other normal eligibility checks. Do not treat this alpha as a stable release.
 
-- Steam Schedule I, default IL2CPP branch (user log reports v0.4.7f12)
-- MelonLoader 0.7.3 (user log)
-- .NET 6 SDK for compiling
-- `LavaGang.MelonLoader` and `Lib.Harmony` NuGet packages
+## Requirements
 
-## Build (PowerShell)
+- Schedule I IL2CPP version used for testing: 0.4.7f12
+- MelonLoader 0.7.3
+- .NET 6 SDK for building
+- NuGet connectivity for dependencies
+
+## Build and install (PowerShell)
+
+Close the game, open the repository root, and run:
 
 ```powershell
-dotnet restore
+git switch development/24-seven-runtime
+git pull --ff-only origin development/24-seven-runtime
 dotnet build -c Release
+
+$game = "C:\Program Files (x86)\Steam\steamapps\common\Schedule I"
+Copy-Item ".\bin\Release\net6.0\ScheduleI24Seven.dll" "$game\Mods" -Force
 ```
 
-If NuGet package resolution or game-specific Unity reference errors occur, reference the assemblies generated on **your own PC** in `Schedule I\MelonLoader\Il2CppAssemblies` and `Schedule I\MelonLoader\net6`, and adjust `ScheduleI24Seven.csproj`. Do not commit redistributed game DLLs.
+If your Steam library is elsewhere, modify `$game`. Build success alone does not prove runtime compatibility. Some NuGet packages currently generate version/framework compatibility warnings.
 
-## Install for testing
+**Remove** the older `Employee Always Work & Plants Always Grow v2.0.0.dll` from the game's `Mods` folder; it fails on the removed `Employee.GetBed()` API and conflicts with this mod. Keep backups outside the `Mods` folder. Back up your save before testing.
 
-1. Back up your save.
-2. Remove `Employee Always Work & Plants Always Grow v2.0.0.dll` from `Schedule I\Mods` to prevent conflicts.
-3. Build the project, then place `bin\Release\net6.0\ScheduleI24Seven.dll` in the game's `Mods` folder.
-4. Launch and inspect `MelonLoader\Latest.log` for `24/7 alpha initialized` and `Patched` lines.
-5. Verify employee behaviour during the 4 AM freeze, not just at startup. Do not enable plant ticking yet.
+## Preferences
 
-## Configuration
+MelonLoader settings: `UserData\MelonPreferences.cfg`, category `ScheduleI24Seven`.
 
-MelonPreferences writes preferences in `UserData\MelonPreferences.cfg`.
+| Setting | Default | Meaning |
+|---|---|---|
+| `EmployeesAtEndOfDay` | `true` | Allow employees to keep working during the detected freeze |
+| `PlantGrowthAtEndOfDay` | `false` | Opt into experimental simulated plant minutes |
+| `SecondsPerPlantMinute` | `60` | Real seconds per simulated plant minute |
+| `Diagnostics` | `true` | Log detected game APIs and patch status |
 
-- `EmployeesAtEndOfDay` — true (experimental)
-- `PlantGrowthAtEndOfDay` — false until IL2CPP enumeration is completed
-- `Diagnostics` — true
-- `SecondsPerPlantMinute` — 60
+**There are no wage-related settings.** If an older settings file contains `EndOfDayWages` or `WageDryRun`, those entries are ignored; you can remove them.
 
-## Compatibility TODOs
+## Test plan
 
-- [ ] Inspect `Il2CppScheduleOne.GameTime.TimeManager` in v0.4.7f12 and determine actual end-of-day flag.
-- [ ] Confirm `Employee.CanWork` signature and verify existing bed and wage eligibility checks.
-- [ ] Implement plant enumeration and `MinPass` equivalent via supported generated IL2CPP types.
-- [ ] Locate and safely invoke game's wage mechanism every 24 game minutes during end-of-day; test against double deductions.
-- [ ] Multiplayer host/client authority tests; save/reload regression tests.
-- [ ] Compile and test a release artifact against v0.4.7f12.
+1. Confirm employees continue working through 4 AM.
+2. On a **backed-up save**, opt into plant growth and check for growth plus log entries; the IL2CPP enumerator may not work on all installations.
+3. Finish the day and check that normal daily wages are charged by the game, with no extra charge from this mod.
+4. Check behavior after save/reload, scene changes, and multiplayer host/client transitions.
 
-## Attribution
+## Known limitations
 
-Independent prototype; **does not incorporate code or assets from the Nexus mod**. References for research: [Schedule I IL2CPP example](https://github.com/EndureBlackout/schedule-il2cpp-example), [PlantsAlwaysGrow](https://github.com/lasersquid/Sched1PlantsAlwaysGrowMod).
+- Plant growth is not yet validated and deliberately starts disabled.
+- End-of-day detection observes `TimeManager.IsEndOfDay` via a Harmony postfix; it expires stale observations after three seconds.
+- Employee `CanWork()` override may bypass non-time checks, including assignment or payment eligibility. Additional compatibility work is planned.
+- Generated Unity/IL2CPP reflection types may cause log warnings during startup.
 
-## License
+## Developer workflow
 
-No public reuse license has been granted. All rights reserved pending the owner's choice of license.
+`scripts/push-to-github.ps1` now synchronizes an existing branch without reinitializing Git. Optional `-Push` pushes local commits. This script does **not** create the repository or make commits automatically.
+
+## Ownership
+
+Copyright © 2026 AnasaAyatan. All rights reserved. See [LICENSE-NOTE.md](LICENSE-NOTE.md). No game binaries or third-party mod source are included.
