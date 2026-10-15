@@ -1,6 +1,6 @@
 # Schedule I 24/7 — frozen growth and watering test
 
-**Experimental version 0.4.2-alpha**, based on Schedule I v0.4.7f12 / MelonLoader v0.7.3. Not yet compiled or in-game tested.
+**Experimental version 0.4.3-alpha**, based on Schedule I v0.4.7f12 / MelonLoader v0.7.3. Not yet compiled or in-game tested.
 
 ## Intended end-of-day behavior (4 AM)
 
@@ -55,15 +55,19 @@ Diagnostics = true
 
 Copyright © 2026 AnasaAyatan. All rights reserved. No game binaries included.
 
-## 0.4.2-alpha test interpretation
+## 0.4.3-alpha test interpretation
 
 - The previous build logged 36 successful calls but the user observed **no visible plant growth**. This version increases the default experimental progress rate to 0.01 per simulated minute and logs a before/requested/after growth readback on the first updated plant. Existing preference values override new defaults, so edit `NormalizedGrowthPerMinute = 0.01` explicitly to test it.
 - The earlier accessor patch was rejected by MelonLoader. This version hooks the real `Pot.OnMinPass()` method during end-of-day, but has **not been runtime tested**.
 - Botanist task selection remains vanilla; there is no new employee task-search algorithm. Employee continued work eligibility is patched, but bots watering to 100% is not yet established.
 - Wages are untouched.
 
-## 0.4.2-alpha: plant-specific growth and small boost
+## 0.4.3-alpha: plant-specific growth and small boost
 
-After 4 AM, the experimental growth-only path now tries to calculate each plant's growth increment using its own GrowthTime, light exposure, temperature, and pot growth multiplier, with a configurable **5%** boost. The default new setting is `AfterHoursGrowthMultiplier = 1.05` (accepted range 1.0–1.25). This implementation depends on reflection-based game APIs and has **not yet been built or validated in-game**. If a required API cannot be used, it logs a warning and falls back to the previously working `NormalizedGrowthPerMinute` rate (also boosted 5%). For a test run, keep `ProtectWaterDuringFrozenGrowth = true`.
+After 4 AM, the experimental growth-only path now tries to calculate each plant's growth increment using its own GrowthTime, light exposure, temperature, and pot growth multiplier, with a configurable **5%** boost. The default new setting is `AfterHoursGrowthMultiplier = 1.05` (any positive finite value accepted). This implementation depends on reflection-based game APIs and has **not yet been built or validated in-game**. If a required API cannot be used, it logs a warning and falls back to the previously working `NormalizedGrowthPerMinute` rate (also boosted 5%). For a test run, keep `ProtectWaterDuringFrozenGrowth = true`.
 
 The mod does not yet independently make botanists choose partially filled pots for watering. Payroll code remains unchanged; no extra wage charges are made.
+
+## 0.4.3-alpha multiplier change
+
+`AfterHoursGrowthMultiplier` is no longer capped at 1.25. A value of `3` requests 3x growth during the 4 AM freeze; `1.05` requests a 5% boost. Invalid (zero, negative, NaN, or infinity) values are replaced with `1.0` at runtime. Values greater than 2 log a one-time warning. Individual growth increments remain constrained to a valid [0, 1] progress interval. Not yet tested in game.
