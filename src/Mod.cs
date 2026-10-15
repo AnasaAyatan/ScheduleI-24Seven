@@ -6,7 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.2.0-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.0-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -30,10 +30,16 @@ public sealed class Mod : MelonMod
     private static MethodInfo? _plantMinutes;
     private static MethodInfo? _findPlants;
     private static HarmonyLib.Harmony? _harmony;
+    private static MethodInfo? _findEmployees;
+    private static MethodInfo? _removeWage;
+    private static PropertyInfo? _paid;
+    private static double _wageElapsed;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
     private static MelonPreferences_Entry<bool> _diagnostics = null!;
+    private static MelonPreferences_Entry<bool> _wageEnabled = null!;
+    private static MelonPreferences_Entry<bool> _wageDryRun = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
 
     public override void OnInitializeMelon()
@@ -43,6 +49,8 @@ public sealed class Mod : MelonMod
         _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", false,
             "Opt in after checking logs and backing up a save. Experimental IL2CPP enumeration.");
         _diagnostics = prefs.CreateEntry("Diagnostics", true);
+        _wageEnabled = prefs.CreateEntry("EndOfDayWages", false, "Experimental wage cycle; disabled by default.");
+        _wageDryRun = prefs.CreateEntry("WageDryRun", true, "Log wage eligibility without charging.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
 
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
@@ -104,6 +112,19 @@ public sealed class Mod : MelonMod
             catch (Exception e) { MelonLogger.Warning("Plant enumeration unavailable: " + e.Message); _findPlants = null; }
         }
 
+        _findEmployees = unityObject?.GetMethods(All)
+            .FirstOrDefault(m => m.Name == "FindObjectsOfType" && m.IsGenericMethodDefinition
+                && m.GetGenericArguments().Length == 1 && m.GetParameters().Length == 0);
+        if (_findEmployees != null && _employeeType != null)
+        {
+            try { _findEmployees = _findEmployees.MakeGenericMethod(_employeeType); }
+            catch (Exception e) { MelonLogger.Warning("Employee enumeration unavailable: " + e.Message); _findEmployees = null; }
+        }
+        _removeWage = _employeeType?.GetMethod("RemoveDailyWage", All, null, Type.EmptyTypes, null);
+        _paid = _employeeType?.GetProperty("PaidForToday", All);
+        MelonLogger.Msg("Wage discovery: enumerator=" + (_findEmployees != null)
+            + ", RemoveDailyWage=" + (_removeWage != null) + ", PaidForToday=" + (_paid != null));
+
         if (_diagnostics.Value)
         {
             Dump(_timeType, "EndOfDay");
@@ -113,7 +134,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.2.0-alpha loaded; wages NOT implemented. " +
+        MelonLogger.Msg("Schedule I 24/7 v0.3.0-alpha loaded; wage cycle opt-in/dry-run. " +
                         "Plant ticking is experimental and off by default.");
     }
 
@@ -146,7 +167,18 @@ public sealed class Mod : MelonMod
         var current = Watch.Elapsed.TotalSeconds;
         var elapsed = _lastSeconds <= 0 ? 0 : Math.Clamp(current - _lastSeconds, 0, 1);
         _lastSeconds = current;
-        if (!_plantEnabled.Value || !EndOfDay())
+        bool frozen = EndOfDay();
+        if (!frozen) _wageElapsed = 0;
+        else if (_wageEnabled.Value)
+        {
+            _wageElapsed += elapsed;
+            if (_wageElapsed >= 1440)
+            {
+                _wageElapsed = 0;
+                ProcessWages();
+            }
+        }
+        if (!_plantEnabled.Value || !frozen)
         {
             _minuteCarry = 0;
             return;
@@ -189,6 +221,35 @@ public sealed class Mod : MelonMod
                 _reportedEnumeratorError = true;
             }
             _plantEnabled.Value = false;
+        }
+    }
+
+    private static void ProcessWages()
+    {
+        if (_findEmployees == null || _removeWage == null || _paid == null)
+        {
+            MelonLogger.Warning("Wage cycle skipped: missing API.");
+            return;
+        }
+        try
+        {
+            if (_findEmployees.Invoke(null, Array.Empty<object>()) is not IEnumerable employees)
+                throw new InvalidOperationException("Employees are not enumerable.");
+            int eligible = 0, charged = 0;
+            foreach (object employee in employees)
+            {
+                if (_paid.GetValue(employee) is not bool paid || !paid) continue;
+                eligible++;
+                if (_wageDryRun.Value) continue;
+                _removeWage.Invoke(employee, Array.Empty<object>());
+                charged++;
+            }
+            MelonLogger.Msg($"Wage cycle eligible={eligible}; charged={charged}; dry-run={_wageDryRun.Value}");
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Error("Wage cycle failed; disabled for this session: " + e);
+            _wageEnabled.Value = false;
         }
     }
 
