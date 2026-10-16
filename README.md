@@ -2,11 +2,11 @@
 
 Keep employees working and plants growing after **4 AM** in [Schedule I](https://store.steampowered.com/app/3164500/Schedule_I/).
 
-Schedule I normally pauses parts of the simulation at the end of the day. But I pay for them to work dammit. Employees can continue working, and botanists can water pots using their **normal in-game behavior**. The mod does **not** but *can* instantly fill pots or modify payroll.
+Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps employees working and lets plants continue growing after 4 AM. Botanists can keep watering their assigned pots through normal in-game behavior. The mod does **not** instantly refill pots or modify payroll.
 
-**Version:** 0.5.0 (stable release candidate; not published)  
+**Version:** 0.5.0 (stable release)  
 **Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
-**Status:** The prior v0.4.11-alpha DLL was built and tested successfully in game. The v0.5.0 version-only update is awaiting its own build and verification before publication.
+**Status:** Published and tested in-game. [Download v0.5.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
 
 ## Features
 
@@ -32,7 +32,7 @@ The mod uses IL2CPP interfaces from the tested game version. Game updates may re
 
 1. Install MelonLoader for Schedule I and launch the game once.
 2. Close the game.
-3. Download or build `ScheduleI24Seven.dll`.
+3. Download [ScheduleI24Seven-v0.5.0.zip](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/download/v0.5.0/ScheduleI24Seven-v0.5.0.zip) from the official release and extract `ScheduleI24Seven.dll`, or build it from source.
 4. Copy it into the game's `Mods` folder, for example:
    `C:\Program Files (x86)\Steam\steamapps\common\Schedule I\Mods\`
 5. Remove other mods that independently override the same end-of-day employee or plant behavior, to avoid conflicts.
@@ -43,7 +43,7 @@ The mod uses IL2CPP interfaces from the tested game version. Game updates may re
 ```powershell
 git clone https://github.com/AnasaAyatan/ScheduleI-24Seven.git
 cd ScheduleI-24Seven
-git switch development/frozen-growth-watering
+git switch main
 dotnet build -c Release
 ```
 
@@ -128,9 +128,9 @@ When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. Th
 ## Releases and history
 
 - [Changelog](CHANGELOG.md) — changes by version.
-- [Release notes (draft)](RELEASE_NOTES.md) — release summary and verification checklist.
+- [Release notes](RELEASE_NOTES.md) — features, compatibility and installation details.
 
-**v0.5.0** is merged into `main` and its compiled ZIP has been tested. Download the official binary from GitHub Releases once the v0.5.0 release is published.
+**v0.5.0 is published.** Get the official ZIP from [GitHub Releases](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
 
 ## License
 
