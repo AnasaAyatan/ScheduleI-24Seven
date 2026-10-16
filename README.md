@@ -4,9 +4,9 @@ Keep employees working and plants growing after **4 AM** in [Schedule I](https:/
 
 Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps supported work and plant growth going during that frozen-time period. Employees can continue working, and botanists can water pots using their **normal in-game behavior**. The mod does **not** instantly fill pots or modify payroll.
 
-**Version:** 0.4.11-alpha  
+**Version:** 0.5.0 (stable release candidate; not published)  
 **Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
-**Status:** Previous 0.4.10-alpha gameplay behavior was confirmed working; growth-limit and documentation changes in 0.4.11-alpha still need verification.
+**Status:** The prior v0.4.11-alpha DLL was built and tested successfully in game. The v0.5.0 version-only update is awaiting its own build and verification before publication.
 
 ## Features
 
@@ -130,7 +130,7 @@ When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. Th
 - [Changelog](CHANGELOG.md) — changes by version.
 - [Release notes (draft)](RELEASE_NOTES.md) — release summary and verification checklist.
 
-The current development candidate is **v0.4.11-alpha**. No stable binary has been published for this branch yet. Download a release asset only after the corresponding GitHub Release is published and verified.
+The current release candidate is **v0.5.0**, prepared on the development branch only. No stable binary has been published for this branch yet. Download a release asset only after the corresponding GitHub Release is published and verified.
 
 ## Support
 
