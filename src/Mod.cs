@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.10-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.11-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -34,7 +34,6 @@ public sealed class Mod : MelonMod
     private static bool _jsonErrorReported;
     private static string _lastPreferencesSnapshot = "";
     private static bool _invalidBoostWarning;
-    private static bool _highBoostWarning;
     private static Type? _timeType;
     private static Type? _plantType;
     private static Type? _employeeType;
@@ -75,18 +74,18 @@ public sealed class Mod : MelonMod
         var prefs = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7");
         _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true, "Employees work after 4 AM");
         _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", false,
-            "Plants grow after 4 AM", "Opt in after backing up a save. Experimental IL2CPP enumeration.");
+            "Allow plants to grow after 4 AM", "Continue plant growth while the clock is frozen at the end of the day.");
         _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", false,
-            "Continue botanist watering after 4 AM", "Experimental: idle, server-authoritative botanists resume assigned pot watering.");
-        _diagnostics = prefs.CreateEntry("Diagnostics", true, "Detailed diagnostic logs");
-        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Protect pot moisture after 4 AM", "Suppresses pot minute updates during frozen time.");
-        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f, "Growth update interval (seconds)");
+            "Botanists water after 4 AM", "Idle botanists continue normal watering tasks for their assigned pots.");
+        _diagnostics = prefs.CreateEntry("Diagnostics", false, "Enable debug logging", "Write extra technical details to the MelonLoader log.");
+        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Prevent water loss after 4 AM", "Stop frozen-time pot moisture drain. Normal botanist watering still adds water.");
+        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f, "Growth refresh interval (seconds)", "How often plant growth is refreshed after 4 AM. Smaller values make updates smoother.");
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
-            "Real seconds per game minute", "Time conversion for frozen growth. Default 1.");
+            "Seconds per simulated game minute", "Controls the speed of time used for plant growth after 4 AM. Smaller values mean faster growth.");
         _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
-            "After-hours growth multiplier", "Default 1.05 (5 percent boost); any positive finite multiplier allowed.");
+            "Plant growth speed multiplier", "1 = normal simulated growth, 2 = twice as fast, 3 = three times as fast. No multiplier cap.");
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
-            "Fallback growth per interval", "Used only if native growth APIs fail; capped at 0.05.");
+            "Fallback growth per refresh", "Only used if the normal growth calculation is unavailable. 0.01 = 1% progress per refresh, before the multiplier.");
 
         _jsonPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "UserData"), "ScheduleI24Seven.json");
         InitializeJson();
@@ -206,7 +205,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.10-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.11-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
@@ -246,7 +245,7 @@ public sealed class Mod : MelonMod
         try
         {
             _harmony!.Patch(update, postfix: new HarmonyMethod(typeof(BotanistPatch), nameof(BotanistPatch.Postfix)));
-            MelonLogger.Msg("Experimental Botanist.UpdateBehaviour() watering fallback installed (disabled until enabled in settings).");
+            MelonLogger.Msg("Botanist after-hours watering hook installed.");
         }
         catch (Exception e) { MelonLogger.Warning("Botanist patch failed: " + e.Message); }
     }
@@ -437,7 +436,7 @@ public sealed class Mod : MelonMod
             _nextJsonCheck = current + 2;
             SynchronizeSettings();
         }
-        var elapsed = _lastSeconds <= 0 ? 0 : Math.Clamp(current - _lastSeconds, 0, 1);
+        var elapsed = _lastSeconds <= 0 ? 0 : Math.Max(0, current - _lastSeconds);
         _lastSeconds = current;
         bool frozen = EndOfDay();
         if (_diagnostics.Value)
@@ -475,18 +474,23 @@ public sealed class Mod : MelonMod
         // The old code treated one 30-second interval as one game minute,
         // yielding approximately 30x slower growth than native game time.
         _minuteCarry += elapsed;
-        float updateInterval = Math.Max(1f, _secondsPerMinute.Value);
+        float updateInterval = float.IsFinite(_secondsPerMinute.Value) && _secondsPerMinute.Value > 0f
+            ? _secondsPerMinute.Value : 60f;
         if (_minuteCarry < updateInterval) return;
         double periodSeconds = _minuteCarry;
         _minuteCarry = 0;
         float secondsPerGameMinute = _realSecondsPerGameMinute.Value;
         if (!float.IsFinite(secondsPerGameMinute) || secondsPerGameMinute <= 0f)
             secondsPerGameMinute = 1f;
-        float simulatedMinutes = (float)Math.Min(periodSeconds / secondsPerGameMinute, 300d);
+        double simulatedMinutesRaw = periodSeconds / secondsPerGameMinute;
+        // A floating-point limit is not a gameplay speed cap: reject overflow
+        // rather than passing infinity or a corrupt duration into the game.
+        if (!double.IsFinite(simulatedMinutesRaw) || simulatedMinutesRaw <= 0) return;
+        float simulatedMinutes = (float)Math.Min(simulatedMinutesRaw, float.MaxValue);
 
         try
         {
-            // Invocation uses IL2CPP-generated reflection wrappers. Test on a backup save.
+            // Invoke the game’s IL2CPP plant wrappers.
             var plants = _findPlants.Invoke(null, Array.Empty<object>());
             if (plants == null) throw new InvalidOperationException("Plant enumeration returned null.");
             int count = 0;
@@ -499,7 +503,7 @@ public sealed class Mod : MelonMod
                         || currentProgress >= 1f) continue;
                     float increment = CalculatePlantGrowth(plant, simulatedMinutes);
                     if (increment <= 0) continue;
-                    float target = Math.Min(1f, Math.Max(0f, currentProgress) + increment);
+                    float target = (float)Math.Min(1d, Math.Max(0d, currentProgress) + increment);
                     _setGrowthProgress!.Invoke(plant, new object[] { target });
                     if (_diagnostics.Value && count == 0)
                     {
@@ -507,7 +511,13 @@ public sealed class Mod : MelonMod
                         MelonLogger.Msg($"Plant growth check: before={currentProgress:F5}, requested={target:F5}, after={observed}.");
                     }
                 }
-                else _plantMinutes!.Invoke(plant, new object[] { Math.Max(1, (int)Math.Round(simulatedMinutes)) });
+                else
+                {
+                    // MinPass accepts an int; clamp only to its representable
+                    // range, not to an artificial number of game minutes.
+                    int wholeMinutes = (int)Math.Min(int.MaxValue, Math.Max(0d, Math.Round(simulatedMinutes)));
+                    if (wholeMinutes > 0) _plantMinutes!.Invoke(plant, new object[] { wholeMinutes });
+                }
                 count++;
             }
             if (_diagnostics.Value) MelonLogger.Msg($"Advanced {count} plants over {simulatedMinutes:F1} simulated minute(s); waterProtection={_protectWater.Value}.");
@@ -535,11 +545,6 @@ public sealed class Mod : MelonMod
             }
             boost = 1f;
         }
-        else if (boost > 2f && !_highBoostWarning)
-        {
-            _highBoostWarning = true;
-            MelonLogger.Warning($"High after-hours growth multiplier ({boost}x) can skip growth stages.");
-        }
         // The native calculation is based on the plant's own growth duration,
         // temperature, light exposure, and pot growth-speed multiplier.
         // If the game wrapper is missing a required member, preserve the
@@ -558,9 +563,9 @@ public sealed class Mod : MelonMod
             float lightFactor = Convert.ToSingle(args[0]);
             float temperature = Convert.ToSingle(_getTemperatureMultiplier.Invoke(pot, Array.Empty<object>()));
             float potSpeed = Convert.ToSingle(_getPotSpeed.GetValue(pot));
-            float result = (minutes / (hours * 60f)) * light * lightFactor * temperature * potSpeed * boost;
-            if (!float.IsFinite(result)) throw new InvalidOperationException("Invalid native growth increment.");
-            return Math.Clamp(result, 0f, 1f);
+            double result = ((double)minutes / ((double)hours * 60d)) * light * lightFactor * temperature * potSpeed * boost;
+            if (double.IsNaN(result)) throw new InvalidOperationException("Invalid native growth increment.");
+            return (float)Math.Min(1d, Math.Max(0d, result));
         }
         catch (Exception e)
         {
@@ -574,8 +579,14 @@ public sealed class Mod : MelonMod
             float secondsPerGameMinute = _realSecondsPerGameMinute.Value;
             if (!float.IsFinite(secondsPerGameMinute) || secondsPerGameMinute <= 0f)
                 secondsPerGameMinute = 1f;
-            float updateIntervals = minutes * secondsPerGameMinute / Math.Max(1f, _secondsPerMinute.Value);
-            return Math.Clamp(_growthPerMinute.Value, 0f, 0.05f) * updateIntervals * boost;
+            double interval = float.IsFinite(_secondsPerMinute.Value) && _secondsPerMinute.Value > 0f
+                ? _secondsPerMinute.Value : 60d;
+            double updateIntervals = (double)minutes * secondsPerGameMinute / interval;
+            double fallback = float.IsFinite(_growthPerMinute.Value) && _growthPerMinute.Value > 0f
+                ? _growthPerMinute.Value : 0d;
+            double amount = fallback * updateIntervals * boost;
+            if (double.IsNaN(amount)) return 0f;
+            return (float)Math.Min(1d, Math.Max(0d, amount));
         }
     }
 
