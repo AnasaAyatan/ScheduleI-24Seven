@@ -11,7 +11,7 @@ This repository uses a development branch for unreleased work. Versions and date
 - Enabled after-hours botanist watering by default for fresh installations.
 - Employee work and pot moisture protection remain enabled by default.
 - Existing users' saved JSON and MelonPreferences settings remain unchanged.
-- No change to payroll, growth algorithms, or watering task logic.
+- No change to growth algorithms or watering task logic.
 
 ### Verification
 - Build and in-game verification pending before publication.
@@ -69,4 +69,4 @@ This repository uses a development branch for unreleased work. Versions and date
 - The water-protection hook suppresses the whole pot minute update after 4 AM; other pot-minute behaviors may also pause.
 - `Employee.CanWork()` may bypass non-time restrictions during the 4 AM freeze.
 - Multiplayer scenarios and newer game versions need separate testing.
-- The mod does not change wages or automatically fill pots.
+- The mod does not automatically fill pots.
