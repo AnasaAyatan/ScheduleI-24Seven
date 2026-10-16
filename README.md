@@ -2,7 +2,7 @@
 
 Keep employees working and plants growing after **4 AM** in [Schedule I](https://store.steampowered.com/app/3164500/Schedule_I/).
 
-Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps employees working and lets plants continue growing after 4 AM. Botanists can keep watering their assigned pots through normal in-game behavior. The mod does **not** instantly refill pots or modify payroll.
+Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps employees working and lets plants continue growing after 4 AM. Botanists can keep watering their assigned pots through normal in-game behavior. The mod does **not** instantly refill pots.
 
 **Development version:** 0.5.1 (unreleased; latest published version is 0.5.0)  
 **Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
@@ -16,7 +16,6 @@ Schedule I normally pauses parts of the simulation at the end of the day. Schedu
 - **Water protection:** Prevent the normal frozen-time pot minute update from draining moisture, without generating water.
 - **Adjustable growth speed:** Set any **positive, finite** growth multiplier (for example, `1` for 1×, `3` for 3×, `10` for 10×). No artificial multiplier or per-update simulated-minute cap.
 - **In-game settings:** Edit settings through the compatible phone Mod Manager.
-- **No payroll changes:** The mod leaves wage calculations to the game.
 
 > **Growth multiplier warning:** Very high values (such as 10× or more) can make plants mature almost instantly and skip visible growth stages. There is no artificial multiplier cap, but total plant progress remains within 0–100%. Start low and increase gradually.
 
@@ -123,7 +122,6 @@ When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. Th
 - The end-of-day employee work patch alters `Employee.CanWork()` during the freeze; this may bypass some non-time work checks.
 - The water-protection hook suppresses the whole pot minute update during the freeze, not only moisture drain.
 - Multiplayer host/server behavior should be tested separately.
-- Payroll methods and wage amounts are not modified by this mod.
 
 ## Releases and history
 
