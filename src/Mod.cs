@@ -3,10 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.IO;
+using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.3.4-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.5.0", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -21,41 +23,80 @@ public sealed class Mod : MelonMod
     private static double _nextStatusLog;
     private static bool _previousFrozen;
     private static bool _previousPlantEnabled;
-    private static bool _waterWarning;
     private static bool _reportedEnumeratorError;
-    private static bool _reportedTimeError;
     private static bool _cachedEndOfDay;
     private static double _lastEndOfDaySample = -1;
-    private static bool _reportedMissingTime;
     private static bool _reportedMissingPlant;
+    private static bool _nativeRateWarning;
+    private static string _jsonPath = "";
+    private static double _nextJsonCheck;
+    private static DateTime _lastJsonWrite = DateTime.MinValue;
+    private static bool _jsonErrorReported;
+    private static string _lastPreferencesSnapshot = "";
+    private static bool _invalidBoostWarning;
     private static Type? _timeType;
     private static Type? _plantType;
     private static Type? _employeeType;
+    private static Type? _botanistType;
+    private static MethodInfo? _getPotForWatering;
+    private static MethodInfo? _assignWatering;
+    private static PropertyInfo? _waterBehaviourProperty;
+    private static MethodInfo? _anyWorkInProgress;
+    private static PropertyInfo? _isServer;
+    private static bool _botanistErrorLogged;
+    private static double _nextBotanistTrace;
     private static MethodInfo? _plantMinutes;
+    private static MethodInfo? _setGrowthProgress;
+    private static PropertyInfo? _getGrowthProgress;
+    private static PropertyInfo? _growthTime;
+    private static PropertyInfo? _plantPot;
+    private static MethodInfo? _getLightExposure;
+    private static MethodInfo? _getTemperatureMultiplier;
+    private static PropertyInfo? _getPotSpeed;
+    private static PropertyInfo? _potMoisture;
+    private static MethodInfo? _potMinuteMethod;
+    private static bool _moisturePatchReady;
     private static MethodInfo? _findPlants;
     private static HarmonyLib.Harmony? _harmony;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
+    private static MelonPreferences_Entry<bool> _botanistWatering = null!;
     private static MelonPreferences_Entry<bool> _protectWater = null!;
     private static MelonPreferences_Entry<bool> _diagnostics = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
+    private static MelonPreferences_Entry<float> _growthPerMinute = null!;
+    private static MelonPreferences_Entry<float> _afterHoursBoost = null!;
+    private static MelonPreferences_Entry<float> _realSecondsPerGameMinute = null!;
 
     public override void OnInitializeMelon()
     {
-        var prefs = MelonPreferences.CreateCategory("ScheduleI24Seven");
-        _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true);
+        var prefs = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7");
+        _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true, "Employees work after 4 AM");
         _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", false,
-            "Opt in after checking logs and backing up a save. Experimental IL2CPP enumeration.");
-        _diagnostics = prefs.CreateEntry("Diagnostics", true);
-        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Blocks unverified water-consuming growth simulation.");
-        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f);
+            "Allow plants to grow after 4 AM", "Continue plant growth while the clock is frozen at the end of the day.");
+        _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", false,
+            "Botanists water after 4 AM", "Idle botanists continue normal watering tasks for their assigned pots.");
+        _diagnostics = prefs.CreateEntry("Diagnostics", false, "Enable debug logging", "Write extra technical details to the MelonLoader log.");
+        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Prevent water loss after 4 AM", "Stop frozen-time pot moisture drain. Normal botanist watering still adds water.");
+        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f, "Growth refresh interval (seconds)", "How often plant growth is refreshed after 4 AM. Smaller values make updates smoother.");
+        _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
+            "Seconds per simulated game minute", "Controls the speed of time used for plant growth after 4 AM. Smaller values mean faster growth.");
+        _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
+            "Plant growth speed multiplier", "Warning: Very high multipliers can make plants finish almost instantly or skip visible growth stages. 1 = normal, 3 = 3x. No multiplier cap.");
+        _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
+            "Fallback growth per refresh", "Only used if the normal growth calculation is unavailable. 0.01 = 1% progress per refresh, before the multiplier.");
+
+        _jsonPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "UserData"), "ScheduleI24Seven.json");
+        InitializeJson();
+        _lastPreferencesSnapshot = PreferencesJson();
 
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
                   ?? AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Plant");
         _timeType = AccessTools.TypeByName("Il2CppScheduleOne.GameTime.TimeManager");
         _harmony = new HarmonyLib.Harmony("com.anasaayatan.schedulei24seven");
+        InitializeBotanistPatch();
         // Observe the live game instance rather than invoking a non-static getter on null.
         var getter = _timeType?.GetProperty("IsEndOfDay", All)?.GetGetMethod(true);
         if (getter != null && getter.ReturnType == typeof(bool))
@@ -92,6 +133,10 @@ public sealed class Mod : MelonMod
         _plantMinutes = _plantType?.GetMethods(All).FirstOrDefault(m =>
             m.Name == "MinPass" && m.GetParameters().Length == 1
             && m.GetParameters()[0].ParameterType == typeof(int));
+        _setGrowthProgress = _plantType?.GetMethod("SetNormalizedGrowthProgress", All, null, new[] { typeof(float) }, null);
+        _getGrowthProgress = _plantType?.GetProperty("NormalizedGrowthProgress", All);
+        _growthTime = _plantType?.GetProperty("GrowthTime", All);
+        _plantPot = _plantType?.GetProperty("Pot", All);
         if (_plantMinutes == null)
             MelonLogger.Warning("Plant.MinPass(int) not found. Plant growth will be unavailable.");
 
@@ -110,6 +155,30 @@ public sealed class Mod : MelonMod
             catch (Exception e) { MelonLogger.Warning("Plant enumeration unavailable: " + e.Message); _findPlants = null; }
         }
 
+        // Previous build patched an IL2CPP field accessor, which Harmony cannot hook.
+        // Pot.OnMinPass is a real game method. Suppressing it in the 4 AM freeze
+        // prevents its time-driven moisture drain while leaving normal bot
+        // watering/RPC operations to the game. This also pauses other pot minute logic.
+        var potTypeForPatch = AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Pot");
+        _potMinuteMethod = potTypeForPatch?.GetMethod("OnMinPass", All, null, Type.EmptyTypes, null);
+        if (_potMinuteMethod != null && _potMinuteMethod.DeclaringType != null)
+        {
+            try
+            {
+                _harmony.Patch(_potMinuteMethod, prefix: new HarmonyMethod(typeof(PotMinutePatch),
+                    nameof(PotMinutePatch.Prefix)));
+                _moisturePatchReady = true;
+                MelonLogger.Msg("Patched Pot.OnMinPass() to suppress frozen-period minute updates.");
+            }
+            catch (Exception e) { MelonLogger.Error("Pot minute patch failed: " + e); }
+        }
+        else MelonLogger.Warning("Pot.OnMinPass() not found: cannot guarantee frozen-period water preservation.");
+
+        var growContainer = AccessTools.TypeByName("Il2CppScheduleOne.Growing.GrowContainer");
+        _getLightExposure = growContainer?.GetMethods(All).FirstOrDefault(m =>
+            m.Name == "GetAverageLightExposure" && m.GetParameters().Length == 1);
+        _getTemperatureMultiplier = growContainer?.GetMethod("GetTemperatureGrowthMultiplier", All, null, Type.EmptyTypes, null);
+        _getPotSpeed = potTypeForPatch?.GetProperty("GrowSpeedMultiplier", All);
         if (_diagnostics.Value)
         {
             Dump(_timeType, "EndOfDay");
@@ -136,11 +205,209 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.3.4-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.5.0 loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
-                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}.");
+                        $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
         _previousPlantEnabled = _plantEnabled.Value;
+    }
+
+    private static void InitializeBotanistPatch()
+    {
+        _botanistType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Botanist");
+        if (_botanistType == null) { MelonLogger.Warning("Botanist wrapper missing; after-hours watering disabled."); return; }
+        var update = _botanistType.GetMethod("UpdateBehaviour", All, null, Type.EmptyTypes, null);
+        _getPotForWatering = _botanistType.GetMethods(All).FirstOrDefault(m =>
+            m.Name == "GetPotForWatering" && m.GetParameters().Length == 1 &&
+            m.GetParameters()[0].ParameterType == typeof(float));
+        _waterBehaviourProperty = _botanistType.GetProperty("_waterPotBehaviour", All);
+        _anyWorkInProgress = _botanistType.GetMethod("IsAnyWorkInProgress", All, null, Type.EmptyTypes, null);
+        _isServer = _botanistType.GetProperty("IsServer", All) ??
+                    _botanistType.BaseType?.GetProperty("IsServer", All);
+        var behaviourType = _waterBehaviourProperty?.PropertyType;
+        _assignWatering = behaviourType?.GetMethods(All).FirstOrDefault(m =>
+            m.Name == "AssignAndEnable" && m.GetParameters().Length == 1 &&
+            _getPotForWatering != null &&
+            m.GetParameters()[0].ParameterType.IsAssignableFrom(_getPotForWatering.ReturnType));
+        if (_diagnostics.Value)
+        {
+            DumpBotanistApi(_botanistType);
+            var waterType = AccessTools.TypeByName("Il2CppScheduleOne.NPCs.Behaviour.WaterPotBehaviour");
+            DumpBotanistApi(waterType);
+            DumpBotanistApi(behaviourType);
+        }
+        if (update == null || _getPotForWatering == null || _waterBehaviourProperty == null ||
+            _anyWorkInProgress == null || _isServer == null || _assignWatering == null)
+        {
+            MelonLogger.Warning($"Botanist watering API incomplete: update={update != null}, getPot={_getPotForWatering != null}, waterBehaviour={_waterBehaviourProperty != null}, activeWork={_anyWorkInProgress != null}, isServer={_isServer != null}, assign={_assignWatering != null}. No watering patch applied.");
+            return;
+        }
+        try
+        {
+            _harmony!.Patch(update, postfix: new HarmonyMethod(typeof(BotanistPatch), nameof(BotanistPatch.Postfix)));
+            MelonLogger.Msg("Botanist after-hours watering hook installed.");
+        }
+        catch (Exception e) { MelonLogger.Warning("Botanist patch failed: " + e.Message); }
+    }
+
+    private static void DumpBotanistApi(Type? type)
+    {
+        if (type == null)
+        {
+            MelonLogger.Msg("Botanist API diagnostics: requested type unavailable.");
+            return;
+        }
+        MelonLogger.Msg("Botanist API diagnostics for " + type.FullName);
+        string[] terms = { "water", "work", "behav", "active", "pot", "assign", "enable", "task", "station" };
+        Type? cursor = type;
+        for (int depth = 0; cursor != null && depth < 3; cursor = cursor.BaseType, depth++)
+        {
+            int emitted = 0;
+            foreach (var member in cursor.GetMembers(All | BindingFlags.DeclaredOnly)
+                         .Where(m => terms.Any(t => m.Name.Contains(t, StringComparison.OrdinalIgnoreCase)))
+                         .Where(m => !m.Name.StartsWith("Native", StringComparison.Ordinal))
+                         .OrderBy(m => m.Name))
+            {
+                if (emitted++ >= 65) break;
+                MelonLogger.Msg($"Botanist API [{cursor.Name}] {member.MemberType}: {member}");
+            }
+        }
+    }
+
+    public static class BotanistPatch
+    {
+        public static void Postfix(object __instance)
+        {
+            if (!_botanistWatering.Value || !_employeeEnabled.Value || !EndOfDay()) return;
+            try
+            {
+                if (_isServer?.GetValue(__instance) is not true) return;
+                // Use the game's own work-in-progress check.
+                if (_anyWorkInProgress?.Invoke(__instance, Array.Empty<object>()) is not false) return;
+                object? pot = _getPotForWatering?.Invoke(__instance, new object[] { 0.01f });
+                if (pot == null) return;
+                object? behaviour = _waterBehaviourProperty?.GetValue(__instance);
+                if (behaviour == null) return;
+                _assignWatering?.Invoke(behaviour, new[] { pot });
+                if (_diagnostics.Value && Watch.Elapsed.TotalSeconds >= _nextBotanistTrace)
+                {
+                    _nextBotanistTrace = Watch.Elapsed.TotalSeconds + 30;
+                    MelonLogger.Msg("After-hours botanist assigned a pot for real NPC watering.");
+                }
+            }
+            catch (Exception e)
+            {
+                if (!_botanistErrorLogged)
+                {
+                    _botanistErrorLogged = true;
+                    MelonLogger.Warning("Botanist after-hours watering fallback failed closed: " + e);
+                }
+            }
+        }
+    }
+
+    private static string PreferencesJson()
+    {
+        var current = new
+        {
+            EmployeesAtEndOfDay = _employeeEnabled.Value,
+            BotanistWateringAfter4AM = _botanistWatering.Value,
+            PlantGrowthAtEndOfDay = _plantEnabled.Value,
+            ProtectWaterDuringFrozenGrowth = _protectWater.Value,
+            Diagnostics = _diagnostics.Value,
+            SecondsPerPlantMinute = _secondsPerMinute.Value,
+            RealSecondsPerGameMinute = _realSecondsPerGameMinute.Value,
+            NormalizedGrowthPerMinute = _growthPerMinute.Value,
+            AfterHoursGrowthMultiplier = _afterHoursBoost.Value
+        };
+        return JsonSerializer.Serialize(current, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static void SynchronizeSettings()
+    {
+        // Phone Mod Manager edits MelonPreferences entries directly and writes
+        // UserData/MelonPreferences.cfg. Mirror those changes into JSON so the
+        // two editors don't disagree. File changes from the JSON editor are
+        // imported when no newer live preference edit is pending.
+        string snapshot = PreferencesJson();
+        if (snapshot != _lastPreferencesSnapshot)
+        {
+            try
+            {
+                File.WriteAllText(_jsonPath, snapshot);
+                _lastJsonWrite = File.GetLastWriteTimeUtc(_jsonPath);
+                _lastPreferencesSnapshot = snapshot;
+                MelonLogger.Msg("Saved phone preferences to JSON mirror.");
+            }
+            catch (Exception e) { MelonLogger.Warning("JSON mirror write failed: " + e.Message); }
+            return;
+        }
+        ReloadJsonIfChanged();
+        _lastPreferencesSnapshot = PreferencesJson();
+    }
+
+    private static void InitializeJson()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "UserData"));
+            if (!File.Exists(_jsonPath))
+            {
+                File.WriteAllText(_jsonPath, PreferencesJson());
+            }
+            ReloadJsonIfChanged();
+            MelonLogger.Msg("Editable phone JSON configuration: " + _jsonPath);
+        }
+        catch (Exception e) { MelonLogger.Warning("JSON settings unavailable; using MelonPreferences: " + e.Message); }
+    }
+
+    private static void ReloadJsonIfChanged()
+    {
+        try
+        {
+            if (!File.Exists(_jsonPath)) return;
+            DateTime modified = File.GetLastWriteTimeUtc(_jsonPath);
+            if (modified == _lastJsonWrite) return;
+            using var doc = JsonDocument.Parse(File.ReadAllText(_jsonPath));
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("JSON settings must be an object.");
+            bool ReadBool(string key, bool existing) =>
+                root.TryGetProperty(key, out var p) &&
+                (p.ValueKind == JsonValueKind.True || p.ValueKind == JsonValueKind.False)
+                    ? p.GetBoolean() : existing;
+            float ReadFloat(string key, float existing) =>
+                root.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Number &&
+                p.TryGetSingle(out float value) && float.IsFinite(value) ? value : existing;
+            // Parse the full file before applying anything, so invalid JSON
+            // cannot partially overwrite live preferences.
+            _employeeEnabled.Value = ReadBool("EmployeesAtEndOfDay", _employeeEnabled.Value);
+            _botanistWatering.Value = ReadBool("BotanistWateringAfter4AM", _botanistWatering.Value);
+            _plantEnabled.Value = ReadBool("PlantGrowthAtEndOfDay", _plantEnabled.Value);
+            _protectWater.Value = ReadBool("ProtectWaterDuringFrozenGrowth", _protectWater.Value);
+            _diagnostics.Value = ReadBool("Diagnostics", _diagnostics.Value);
+            // Keep valid user values unchanged. Ignore invalid negatives/zeros
+            // where positive timing and multipliers are required.
+            float positive(string key, float existing) {
+                float proposed = ReadFloat(key, existing);
+                return proposed > 0f ? proposed : existing;
+            }
+            _secondsPerMinute.Value = positive("SecondsPerPlantMinute", _secondsPerMinute.Value);
+            _realSecondsPerGameMinute.Value = positive("RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value);
+            _growthPerMinute.Value = Math.Max(0f, ReadFloat("NormalizedGrowthPerMinute", _growthPerMinute.Value));
+            _afterHoursBoost.Value = positive("AfterHoursGrowthMultiplier", _afterHoursBoost.Value);
+            _lastJsonWrite = modified;
+            _jsonErrorReported = false;
+            MelonLogger.Msg("Loaded editable JSON settings from " + _jsonPath);
+        }
+        catch (Exception e)
+        {
+            if (!_jsonErrorReported)
+            {
+                _jsonErrorReported = true;
+                MelonLogger.Warning("Could not reload JSON settings; keeping previous settings: " + e.Message);
+            }
+        }
     }
 
     private static void Dump(Type? type, string fragment)
@@ -170,7 +437,12 @@ public sealed class Mod : MelonMod
     public override void OnUpdate()
     {
         var current = Watch.Elapsed.TotalSeconds;
-        var elapsed = _lastSeconds <= 0 ? 0 : Math.Clamp(current - _lastSeconds, 0, 1);
+        if (current >= _nextJsonCheck)
+        {
+            _nextJsonCheck = current + 2;
+            SynchronizeSettings();
+        }
+        var elapsed = _lastSeconds <= 0 ? 0 : Math.Max(0, current - _lastSeconds);
         _lastSeconds = current;
         bool frozen = EndOfDay();
         if (_diagnostics.Value)
@@ -192,7 +464,7 @@ public sealed class Mod : MelonMod
             _minuteCarry = 0;
             return;
         }
-        if (_findPlants == null || _plantMinutes == null)
+        if (_findPlants == null || (_protectWater.Value ? (!_moisturePatchReady || _setGrowthProgress == null || _getGrowthProgress == null) : _plantMinutes == null))
         {
             if (!_reportedMissingPlant)
             {
@@ -202,39 +474,59 @@ public sealed class Mod : MelonMod
             return;
         }
 
-        // Do not invoke MinPass while water effects are unknown.
-        // This fail-closed mode intentionally suspends plant simulation.
-        if (_protectWater.Value)
-        {
-            if (!_waterWarning)
-            {
-                MelonLogger.Warning("Plant growth suspended: ProtectWaterDuringFrozenGrowth is enabled. " +
-                    "Water-neutral growth requires confirmed game API.");
-                _waterWarning = true;
-            }
-            _minuteCarry = 0;
-            return;
-        }
-
+        // Water-safe mode uses growth progress only; do not call MinPass.
+        // It also requires the end-of-day pot moisture setter clamp.
+        // _minuteCarry tracks REAL elapsed seconds, not game minutes.
+        // The old code treated one 30-second interval as one game minute,
+        // yielding approximately 30x slower growth than native game time.
         _minuteCarry += elapsed;
-        int minutes = (int)(_minuteCarry / Math.Max(1f, _secondsPerMinute.Value));
-        if (minutes < 1) return;
-        minutes = Math.Min(minutes, 5);
-        _minuteCarry -= minutes * Math.Max(1f, _secondsPerMinute.Value);
+        float updateInterval = float.IsFinite(_secondsPerMinute.Value) && _secondsPerMinute.Value > 0f
+            ? _secondsPerMinute.Value : 60f;
+        if (_minuteCarry < updateInterval) return;
+        double periodSeconds = _minuteCarry;
+        _minuteCarry = 0;
+        float secondsPerGameMinute = _realSecondsPerGameMinute.Value;
+        if (!float.IsFinite(secondsPerGameMinute) || secondsPerGameMinute <= 0f)
+            secondsPerGameMinute = 1f;
+        double simulatedMinutesRaw = periodSeconds / secondsPerGameMinute;
+        // A floating-point limit is not a gameplay speed cap: reject overflow
+        // rather than passing infinity or a corrupt duration into the game.
+        if (!double.IsFinite(simulatedMinutesRaw) || simulatedMinutesRaw <= 0) return;
+        float simulatedMinutes = (float)Math.Min(simulatedMinutesRaw, float.MaxValue);
 
         try
         {
-            // Invocation uses IL2CPP-generated reflection wrappers. Test on a backup save.
-            var plants = _findPlants.Invoke(null, Array.Empty<object>()) as IEnumerable;
-            if (plants == null) throw new InvalidOperationException("Plant enumeration yielded no enumerable.");
+            // Invoke the game’s IL2CPP plant wrappers.
+            var plants = _findPlants.Invoke(null, Array.Empty<object>());
+            if (plants == null) throw new InvalidOperationException("Plant enumeration returned null.");
             int count = 0;
-            foreach (var plant in plants)
+            foreach (var plant in EnumeratePlants(plants))
             {
-                if (plant == null) continue;
-                _plantMinutes.Invoke(plant, new object[] { minutes });
+                if (_protectWater.Value)
+                {
+                    var raw = _getGrowthProgress!.GetValue(plant);
+                    if (raw is not float currentProgress || !float.IsFinite(currentProgress)
+                        || currentProgress >= 1f) continue;
+                    float increment = CalculatePlantGrowth(plant, simulatedMinutes);
+                    if (increment <= 0) continue;
+                    float target = (float)Math.Min(1d, Math.Max(0d, currentProgress) + increment);
+                    _setGrowthProgress!.Invoke(plant, new object[] { target });
+                    if (_diagnostics.Value && count == 0)
+                    {
+                        var observed = _getGrowthProgress.GetValue(plant);
+                        MelonLogger.Msg($"Plant growth check: before={currentProgress:F5}, requested={target:F5}, after={observed}.");
+                    }
+                }
+                else
+                {
+                    // MinPass accepts an int; clamp only to its representable
+                    // range, not to an artificial number of game minutes.
+                    int wholeMinutes = (int)Math.Min(int.MaxValue, Math.Max(0d, Math.Round(simulatedMinutes)));
+                    if (wholeMinutes > 0) _plantMinutes!.Invoke(plant, new object[] { wholeMinutes });
+                }
                 count++;
             }
-            if (_diagnostics.Value) MelonLogger.Msg($"Advanced {count} plants by {minutes} minute(s).");
+            if (_diagnostics.Value) MelonLogger.Msg($"Advanced {count} plants over {simulatedMinutes:F1} simulated minute(s); waterProtection={_protectWater.Value}.");
         }
         catch (Exception e)
         {
@@ -244,6 +536,93 @@ public sealed class Mod : MelonMod
                 _reportedEnumeratorError = true;
             }
             _plantEnabled.Value = false;
+        }
+    }
+
+    private static float CalculatePlantGrowth(object plant, float minutes)
+    {
+        float boost = _afterHoursBoost.Value;
+        if (!float.IsFinite(boost) || boost <= 0f)
+        {
+            if (!_invalidBoostWarning)
+            {
+                _invalidBoostWarning = true;
+                MelonLogger.Warning("Invalid AfterHoursGrowthMultiplier; using 1.0.");
+            }
+            boost = 1f;
+        }
+        // The native calculation is based on the plant's own growth duration,
+        // temperature, light exposure, and pot growth-speed multiplier.
+        // If the game wrapper is missing a required member, preserve the
+        // previously tested fixed rate instead of guessing a different one.
+        try
+        {
+            if (_growthTime == null || _plantPot == null || _getLightExposure == null
+                || _getTemperatureMultiplier == null || _getPotSpeed == null)
+                throw new MissingMemberException("Native growth APIs unavailable.");
+            float hours = Convert.ToSingle(_growthTime.GetValue(plant));
+            if (!float.IsFinite(hours) || hours <= 0) throw new InvalidOperationException("Invalid growth duration.");
+            var pot = _plantPot.GetValue(plant);
+            if (pot == null) throw new InvalidOperationException("Missing plant pot.");
+            object[] args = { 0f };
+            float light = Convert.ToSingle(_getLightExposure.Invoke(pot, args));
+            float lightFactor = Convert.ToSingle(args[0]);
+            float temperature = Convert.ToSingle(_getTemperatureMultiplier.Invoke(pot, Array.Empty<object>()));
+            float potSpeed = Convert.ToSingle(_getPotSpeed.GetValue(pot));
+            double result = ((double)minutes / ((double)hours * 60d)) * light * lightFactor * temperature * potSpeed * boost;
+            if (double.IsNaN(result)) throw new InvalidOperationException("Invalid native growth increment.");
+            return (float)Math.Min(1d, Math.Max(0d, result));
+        }
+        catch (Exception e)
+        {
+            if (!_nativeRateWarning)
+            {
+                _nativeRateWarning = true;
+                MelonLogger.Warning("Native plant growth rate unavailable; using previous fixed-rate fallback: " + e.Message);
+            }
+            // Preserve legacy fallback pacing: one fixed increment per configured
+            // update interval, not one per converted game minute.
+            float secondsPerGameMinute = _realSecondsPerGameMinute.Value;
+            if (!float.IsFinite(secondsPerGameMinute) || secondsPerGameMinute <= 0f)
+                secondsPerGameMinute = 1f;
+            double interval = float.IsFinite(_secondsPerMinute.Value) && _secondsPerMinute.Value > 0f
+                ? _secondsPerMinute.Value : 60d;
+            double updateIntervals = (double)minutes * secondsPerGameMinute / interval;
+            double fallback = float.IsFinite(_growthPerMinute.Value) && _growthPerMinute.Value > 0f
+                ? _growthPerMinute.Value : 0d;
+            double amount = fallback * updateIntervals * boost;
+            if (double.IsNaN(amount)) return 0f;
+            return (float)Math.Min(1d, Math.Max(0d, amount));
+        }
+    }
+
+    private static IEnumerable<object> EnumeratePlants(object source)
+    {
+        // Il2CppArrayBase<T> is not guaranteed to implement managed IEnumerable.
+        if (source is IEnumerable managed)
+        {
+            foreach (var item in managed) if (item != null) yield return item;
+            yield break;
+        }
+        var type = source.GetType();
+        var lengthProperty = type.GetProperty("Length", All);
+        var itemProperty = type.GetProperty("Item", All);
+        if (lengthProperty == null || itemProperty == null)
+            throw new NotSupportedException("IL2CPP plant array cannot be indexed: " + type);
+        int length = Convert.ToInt32(lengthProperty.GetValue(source));
+        for (int i = 0; i < length; i++)
+        {
+            var item = itemProperty.GetValue(source, new object[] { i });
+            if (item != null) yield return item;
+        }
+    }
+
+    public static class PotMinutePatch
+    {
+        public static bool Prefix()
+        {
+            // Do not suppress pot ticking during normal hours.
+            return !_protectWater.Value || !EndOfDay();
         }
     }
 

@@ -1,109 +1,139 @@
 # Schedule I 24/7
 
-Independent **Schedule I** (IL2CPP) MelonLoader mod for keeping employees working during the end-of-day 4 AM freeze, with opt-in experimental plant growth.
+Keep employees working and plants growing after **4 AM** in [Schedule I](https://store.steampowered.com/app/3164500/Schedule_I/).
 
-## Current status — 0.3.4-alpha
+Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps supported work and plant growth going during that frozen-time period. Employees can continue working, and botanists can water pots using their **normal in-game behavior**. The mod does **not** instantly fill pots or modify payroll.
 
-Test environment: Schedule I **0.4.7f12** and MelonLoader **0.7.3 Open-Beta** on Windows 11.
+**Version:** 0.5.0 (stable release candidate; not published)  
+**Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
+**Status:** The prior v0.4.11-alpha DLL was built and tested successfully in game. The v0.5.0 version-only update is awaiting its own build and verification before publication.
 
-| Feature | Status |
-|---|---|
-| Employees continue working during the 4 AM freeze | **Confirmed in user testing** |
-| Plants progress during the 4 AM freeze | **Experimental, disabled by default; not yet verified in-game** |
-| Wages at normal day transition | **Unmodified game behavior** |
-| Extra wages every 24 minutes at 4 AM | **Not present** |
+## Features
 
-**Wage policy:** This mod **does not modify payroll**. It does not call `Employee.RemoveDailyWage()`, change `Employee.PaidForToday`, intercept wage-deduction functions, or start any additional pay timer. The game remains responsible for its normal day-transition payroll. That transition's behavior should still be regression-tested in game.
+- **After-hours employees:** Continue employee work during the 4 AM freeze.
+- **After-hours botanists:** Idle botanists may take normal watering jobs for their assigned pots.
+- **After-hours plant growth:** Continue plant-specific growth after 4 AM, taking native growth factors into account when available.
+- **Water protection:** Prevent the normal frozen-time pot minute update from draining moisture, without generating water.
+- **Adjustable growth speed:** Set any **positive, finite** growth multiplier (for example, `1` for 1×, `3` for 3×, `10` for 10×). No artificial multiplier or per-update simulated-minute cap.
+- **In-game settings:** Edit settings through the compatible phone Mod Manager.
+- **No payroll changes:** The mod leaves wage calculations to the game.
 
-The employee patch overrides `Employee.CanWork()` during detected end-of-day and may bypass other normal eligibility checks. Do not treat this alpha as a stable release.
+> **Growth multiplier warning:** Very high values (such as 10× or more) can make plants mature almost instantly and skip visible growth stages. There is no artificial multiplier cap, but total plant progress remains within 0–100%. Start low and increase gradually.
 
 ## Requirements
 
-- Schedule I IL2CPP version used for testing: 0.4.7f12
-- MelonLoader 0.7.3
-- .NET 6 SDK for building
-- NuGet connectivity for dependencies
+- Windows version of Schedule I
+- MelonLoader 0.7.3 Open-Beta (the version used for testing)
+- **Optional:** Mod Manager & Phone App 2.2.4 for convenient in-game controls
 
-## Build and install (PowerShell)
+The mod uses IL2CPP interfaces from the tested game version. Game updates may require compatibility changes.
 
-Close the game, open the repository root, and run:
+## Install
+
+1. Install MelonLoader for Schedule I and launch the game once.
+2. Close the game.
+3. Download or build `ScheduleI24Seven.dll`.
+4. Copy it into the game's `Mods` folder, for example:
+   `C:\Program Files (x86)\Steam\steamapps\common\Schedule I\Mods\`
+5. Remove other mods that independently override the same end-of-day employee or plant behavior, to avoid conflicts.
+6. Restart the game.
+
+**Building from source:**
 
 ```powershell
-git switch development/24-seven-runtime
-git pull --ff-only origin development/24-seven-runtime
+git clone https://github.com/AnasaAyatan/ScheduleI-24Seven.git
+cd ScheduleI-24Seven
+git switch development/frozen-growth-watering
 dotnet build -c Release
-
-$game = "C:\Program Files (x86)\Steam\steamapps\common\Schedule I"
-Copy-Item ".\bin\Release\net6.0\ScheduleI24Seven.dll" "$game\Mods" -Force
 ```
 
-If your Steam library is elsewhere, modify `$game`. Build success alone does not prove runtime compatibility. Some NuGet packages currently generate version/framework compatibility warnings.
+After a successful build, the DLL is in `bin\Release\net6.0\ScheduleI24Seven.dll`. Close the game before replacing the installed DLL.
 
-**Remove** the older `Employee Always Work & Plants Always Grow v2.0.0.dll` from the game's `Mods` folder; it fails on the removed `Employee.GetBed()` API and conflicts with this mod. Keep backups outside the `Mods` folder. Back up your save before testing.
+## Configure in game
 
-## Water-safe growth testing
+If you have **Mod Manager & Phone App**, open **Phone → Mod Manager → Schedule I 24/7**. Adjust the switches and number fields, then select **SAVE**. Changes are mirrored to the JSON settings file automatically.
 
-The `ProtectWaterDuringFrozenGrowth` setting defaults to `true`. While it is enabled, the mod **does not call** `Plant.MinPass(int)` during the end-of-day freeze, because that method's water consumption behavior is unverified. This **prevents the mod's experimental growth method from changing water**, but it also means plants will **not** advance via that method yet.
+| Phone setting | What it does |
+| --- | --- |
+| Employees work after 4 AM | Allow employees to continue working during the freeze |
+| Allow plants to grow after 4 AM | Continue plant growth after 4 AM |
+| Botanists water after 4 AM | Let idle botanists take normal watering tasks |
+| Prevent water loss after 4 AM | Suppress frozen-time pot minute updates to protect moisture |
+| Plant growth speed multiplier | Multiply simulated plant growth (`1` = 1×, `3` = 3×) |
+| Growth refresh interval (seconds) | How often growth is updated during the freeze |
+| Seconds per simulated game minute | Conversion between real time and simulated plant-growth time; lower is faster |
+| Fallback growth per refresh | Backup progress increment if game-native growth calculation is unavailable |
+| Enable debug logging | Add detailed diagnostic information to MelonLoader logs |
 
-The startup log now inspects read-only method and property signatures for Plant growth/progress and linked Pot water, moisture, hydration, soil, plant, and growth APIs. This is diagnostic only: the game method responsible for water-neutral growth is not yet identified. Only set `ProtectWaterDuringFrozenGrowth=false` if you deliberately accept the unverified water behavior on a backed-up save.
+**Suggested setup:** Enable employee work, plant growth, botanist watering and water protection. Start with a growth multiplier of `1` and increase it to your preference.
 
-Normal game water usage outside this mod is unchanged. Employee behavior and day-transition wages are unchanged.
+The refresh interval controls how often updates occur; it isn't intended as a growth multiplier. The growth-speed multiplier and seconds-per-simulated-minute setting control the simulation speed.
 
-## Preferences
+## Optional JSON configuration
 
-MelonLoader settings: `UserData\MelonPreferences.cfg`, category `ScheduleI24Seven`.
+You do **not** need to find or enter a JSON path in the phone menu.
 
-| Setting | Default | Meaning |
-|---|---|---|
-| `EmployeesAtEndOfDay` | `true` | Allow employees to keep working during the detected freeze |
-| `PlantGrowthAtEndOfDay` | `false` | Opt into experimental simulated plant minutes |
-| `SecondsPerPlantMinute` | `60` | Real seconds per simulated plant minute |
-| `Diagnostics` | `true` | Log detected game APIs and patch status |
-| `ProtectWaterDuringFrozenGrowth` | `true` | Skip unverified plant-minute simulation to protect water |
+The mod creates and synchronizes:
 
-**There are no wage-related settings.** If an older settings file contains `EndOfDayWages` or `WageDryRun`, those entries are ignored; you can remove them.
+`<Schedule I game folder>\UserData\ScheduleI24Seven.json`
 
-## Plant-growth troubleshooting (v0.3.4-alpha)
+For advanced editing, open that file in a text editor. For example:
 
-The 17:38 game log confirmed that the mod loaded but contained no `Advanced ... plants` or plant-ticking error entries. This alone does **not** establish whether the live game preference was enabled or whether the 4 AM state was detected.
-
-Version 0.3.4-alpha logs the **actual runtime preferences** at startup, and (when `Diagnostics=true`) a **Growth status** line approximately every 30 seconds. Check `plantsEnabled`, `endOfDay`, `sampleAgeSeconds`, `plantMethod`, and `enumerator`. A false flag or stale end-of-day observation explains why no growth attempt occurs.
-
-No change to payroll: wages remain exclusively the game's responsibility.
-
-## Plant growth test preset
-
-The repository includes [`config/plant-growth-test.cfg`](config/plant-growth-test.cfg) as an **example**, with plant simulation enabled and employees enabled. It does not activate automatically when you pull the repository, and it is **not** a replacement for your entire MelonPreferences file.
-
-To test, close the game, open `Schedule I/UserData/MelonPreferences.cfg`, and update only these entries inside `[ScheduleI24Seven]`:
-
-```ini
-EmployeesAtEndOfDay = true
-PlantGrowthAtEndOfDay = true
-SecondsPerPlantMinute = 60
-Diagnostics = true
+```json
+{
+  "EmployeesAtEndOfDay": true,
+  "BotanistWateringAfter4AM": true,
+  "PlantGrowthAtEndOfDay": true,
+  "ProtectWaterDuringFrozenGrowth": true,
+  "Diagnostics": false,
+  "SecondsPerPlantMinute": 30,
+  "RealSecondsPerGameMinute": 1,
+  "NormalizedGrowthPerMinute": 0.01,
+  "AfterHoursGrowthMultiplier": 3
+}
 ```
 
-Back up your save before enabling experimental plant ticking. The mod does not change the game's day-transition wage behavior.
+These are **example preferences**, not necessarily the defaults in a fresh installation. Existing settings are preserved when upgrading. JSON changes are checked approximately every two seconds; the phone settings are stored in `UserData\MelonPreferences.cfg` and mirrored to JSON.
 
-## Test plan
+Only use positive, finite numbers for the multiplier and timing settings. `NormalizedGrowthPerMinute` may be zero or positive. Invalid settings are ignored or replaced with safe runtime fallbacks.
 
-1. Confirm employees continue working through 4 AM.
-2. On a **backed-up save**, opt into plant growth and check for growth plus log entries; the IL2CPP enumerator may not work on all installations.
-3. Finish the day and check that normal daily wages are charged by the game, with no extra charge from this mod.
-4. Check behavior after save/reload, scene changes, and multiplayer host/client transitions.
+## How watering works
 
-## Known limitations
+Watering uses the game's botanist behavior and available watering supplies. Bots must be assigned to the appropriate pots and able to reach them. The mod does **not** teleport water into pots or automatically set pot moisture to 100%.
 
-- Plant growth is not yet validated and deliberately starts disabled.
-- End-of-day detection observes `TimeManager.IsEndOfDay` via a Harmony postfix; it expires stale observations after three seconds.
-- Employee `CanWork()` override may bypass non-time checks, including assignment or payment eligibility. Additional compatibility work is planned.
-- Generated Unity/IL2CPP reflection types may cause log warnings during startup.
+When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. This prevents that minute-based moisture drain, but it also pauses **other pot minute logic** during the freeze; this is a known implementation trade-off.
 
-## Developer workflow
+## Troubleshooting
 
-`scripts/push-to-github.ps1` now synchronizes an existing branch without reinitializing Git. Optional `-Push` pushes local commits. This script does **not** create the repository or make commits automatically.
+**Settings missing in the phone:** Check that Mod Manager & Phone App is installed and you are running a recent build of Schedule I 24/7. You can still edit `UserData\ScheduleI24Seven.json` directly.
 
-## Ownership
+**Employees do not work:** Verify `EmployeesAtEndOfDay` is enabled. Other mods and employee assignment restrictions may affect behavior.
 
-Copyright © 2026 AnasaAyatan. All rights reserved. See [LICENSE-NOTE.md](LICENSE-NOTE.md). No game binaries or third-party mod source are included.
+**Botanists do not water:** Enable `BotanistWateringAfter4AM`; check that watering supplies are available and pots are assigned. If needed, enable Diagnostics and inspect `MelonLoader\Latest.log` for the botanist hook message.
+
+**Plants do not grow:** Enable `PlantGrowthAtEndOfDay`; confirm the freeze has started and look for any missing-API or plant-update warnings. Try a small, reasonable multiplier to verify baseline operation.
+
+**Build fails:** Do not copy an older DLL from `bin\Release` after a failed build. Fix the compiler errors first.
+
+## Compatibility and limitations
+
+- Developed against Schedule I v0.4.7f12, with MelonLoader v0.7.3 Open-Beta.
+- Native growth calculation depends on the game's growth APIs. A configurable fallback is available.
+- Extremely high multipliers can advance plants to maturity in a single refresh.
+- The end-of-day employee work patch alters `Employee.CanWork()` during the freeze; this may bypass some non-time work checks.
+- The water-protection hook suppresses the whole pot minute update during the freeze, not only moisture drain.
+- Multiplayer host/server behavior should be tested separately.
+- Payroll methods and wage amounts are not modified by this mod.
+
+## Releases and history
+
+- [Changelog](CHANGELOG.md) — changes by version.
+- [Release notes (draft)](RELEASE_NOTES.md) — release summary and verification checklist.
+
+The current release candidate is **v0.5.0**, prepared on the development branch only. No stable binary has been published for this branch yet. Download a release asset only after the corresponding GitHub Release is published and verified.
+
+## Support
+
+When reporting an issue, include the mod version, game version, what happened, relevant settings, and the MelonLoader log.
+
+Copyright © 2026 AnasaAyatan. All rights reserved. No game binaries included.
