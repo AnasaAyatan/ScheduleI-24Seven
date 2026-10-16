@@ -83,7 +83,7 @@ public sealed class Mod : MelonMod
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
             "Seconds per simulated game minute", "Controls the speed of time used for plant growth after 4 AM. Smaller values mean faster growth.");
         _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
-            "Plant growth speed multiplier", "1 = normal simulated growth, 2 = twice as fast, 3 = three times as fast. No multiplier cap.");
+            "Plant growth speed multiplier", "Warning: Very high multipliers can make plants finish almost instantly or skip visible growth stages. 1 = normal, 3 = 3x. No multiplier cap.");
         _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
             "Fallback growth per refresh", "Only used if the normal growth calculation is unavailable. 0.01 = 1% progress per refresh, before the multiplier.");
 
