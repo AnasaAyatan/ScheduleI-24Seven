@@ -58,12 +58,18 @@ public sealed class Mod : MelonMod
     private static bool _moisturePatchReady;
     private static MethodInfo? _findPlants;
     private static HarmonyLib.Harmony? _harmony;
+    private static Type? _businessType;
+    private static PropertyInfo? _ownedBusinesses, _businessOperations, _operationMinutes, _operationCompletion, _businessIsServer;
+    private static MethodInfo? _completeOperation;
+    private static double _launderingCarry;
+    private static bool _launderingFailureReported;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
     private static MelonPreferences_Entry<bool> _botanistWatering = null!;
     private static MelonPreferences_Entry<bool> _protectWater = null!;
     private static MelonPreferences_Entry<bool> _diagnostics = null!;
+    private static MelonPreferences_Entry<bool> _launderingAfter4AM = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
     private static MelonPreferences_Entry<float> _growthPerMinute = null!;
     private static MelonPreferences_Entry<float> _afterHoursBoost = null!;
@@ -77,6 +83,9 @@ public sealed class Mod : MelonMod
             "Allow plants to grow after 4 AM", "Continue plant growth while the clock is frozen at the end of the day.");
         _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", true,
             "Botanists water after 4 AM", "Idle botanists continue normal watering tasks for their assigned pots.");
+        _launderingAfter4AM = prefs.CreateEntry("LaunderingProgressAfter4AM", true,
+            "Laundering continues after 4 AM",
+            "Advance existing laundering operations while the clock is frozen using native completion.");
         _diagnostics = prefs.CreateEntry("Diagnostics", false, "Enable debug logging", "Write extra technical details to the MelonLoader log.");
         _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Prevent water loss after 4 AM", "Stop frozen-time pot moisture drain. Normal botanist watering still adds water.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f, "Growth refresh interval (seconds)", "How often plant growth is refreshed after 4 AM. Smaller values make updates smoother.");
@@ -111,6 +120,7 @@ public sealed class Mod : MelonMod
             foreach (string name in typesToInspect)
                 DumpCommerceApi(name);
         }
+        InitializeLaunderingProgress();
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
                   ?? AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Plant");
@@ -270,6 +280,88 @@ public sealed class Mod : MelonMod
         catch (Exception e) { MelonLogger.Warning("Botanist patch failed: " + e.Message); }
     }
 
+    private static void InitializeLaunderingProgress()
+    {
+        _businessType = AccessTools.TypeByName("Il2CppScheduleOne.Property.Business");
+        var operationType = AccessTools.TypeByName("Il2CppScheduleOne.Property.LaunderingOperation");
+        _ownedBusinesses = _businessType?.GetProperty("OwnedBusinesses", All);
+        _businessOperations = _businessType?.GetProperty("LaunderingOperations", All);
+        _businessIsServer = _businessType?.GetProperty("IsServer", All);
+        _operationMinutes = operationType?.GetProperty("minutesSinceStarted", All);
+        _operationCompletion = operationType?.GetProperty("completionTime_Minutes", All);
+        _completeOperation = operationType == null ? null :
+            _businessType?.GetMethod("CompleteOperation", All, null, new[] { operationType }, null);
+        if (_ownedBusinesses == null || _businessOperations == null || _businessIsServer == null ||
+            _operationMinutes?.CanWrite != true || _operationCompletion == null || _completeOperation == null)
+        {
+            MelonLogger.Warning("After-hours laundering API incomplete; progress unavailable.");
+            _completeOperation = null;
+        }
+        else MelonLogger.Msg("After-hours laundering progress API ready.");
+    }
+
+    private static IEnumerable<object> EnumerateCommerceCollection(object? source)
+    {
+        if (source == null) yield break;
+        if (source is IEnumerable sequence)
+        {
+            foreach (var obj in sequence) if (obj != null) yield return obj;
+            yield break;
+        }
+        var t = source.GetType();
+        var count = t.GetProperty("Count", All) ?? t.GetProperty("Length", All);
+        var item = t.GetProperty("Item", All);
+        if (count == null || item == null)
+            throw new InvalidOperationException("Unexpected IL2CPP list wrapper: " + t);
+        int n = Convert.ToInt32(count.GetValue(source));
+        for (int i = 0; i < n; i++)
+        {
+            var obj = item.GetValue(source, new object[] { i });
+            if (obj != null) yield return obj;
+        }
+    }
+
+    private static void AdvanceLaundering(double elapsed, bool frozen)
+    {
+        if (!frozen || !_launderingAfter4AM.Value || _completeOperation == null)
+        {
+            _launderingCarry = 0;
+            return;
+        }
+        double secondsPerMinute = _realSecondsPerGameMinute.Value;
+        if (!double.IsFinite(secondsPerMinute) || secondsPerMinute <= 0) return;
+        _launderingCarry += Math.Min(elapsed, 5d);
+        int minutes = (int)Math.Min(60d, Math.Floor(_launderingCarry / secondsPerMinute));
+        if (minutes <= 0) return;
+        _launderingCarry -= minutes * secondsPerMinute;
+        try
+        {
+            foreach (var business in EnumerateCommerceCollection(_ownedBusinesses!.GetValue(null)))
+            {
+                if (_businessIsServer!.GetValue(business) is not true) continue;
+                var operations = EnumerateCommerceCollection(_businessOperations!.GetValue(business)).ToArray();
+                foreach (var operation in operations)
+                {
+                    int current = Convert.ToInt32(_operationMinutes!.GetValue(operation));
+                    int total = Convert.ToInt32(_operationCompletion!.GetValue(operation));
+                    if (total <= 0 || current < 0) continue;
+                    int next = (int)Math.Min(total, (long)current + minutes);
+                    if (next != current) _operationMinutes.SetValue(operation, next);
+                    if (next >= total) _completeOperation.Invoke(business, new[] { operation });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _completeOperation = null;
+            if (!_launderingFailureReported)
+            {
+                _launderingFailureReported = true;
+                MelonLogger.Error("After-hours laundering disabled for this session: " + ex);
+            }
+        }
+    }
+
     private static void DumpCommerceApi(string qualifiedName)
     {
         // Only logs relevant signatures when Diagnostics is enabled; never invokes them.
@@ -356,6 +448,7 @@ public sealed class Mod : MelonMod
             BotanistWateringAfter4AM = _botanistWatering.Value,
             PlantGrowthAtEndOfDay = _plantEnabled.Value,
             ProtectWaterDuringFrozenGrowth = _protectWater.Value,
+            LaunderingProgressAfter4AM = _launderingAfter4AM.Value,
             Diagnostics = _diagnostics.Value,
             SecondsPerPlantMinute = _secondsPerMinute.Value,
             RealSecondsPerGameMinute = _realSecondsPerGameMinute.Value,
@@ -427,6 +520,7 @@ public sealed class Mod : MelonMod
             _botanistWatering.Value = ReadBool("BotanistWateringAfter4AM", _botanistWatering.Value);
             _plantEnabled.Value = ReadBool("PlantGrowthAtEndOfDay", _plantEnabled.Value);
             _protectWater.Value = ReadBool("ProtectWaterDuringFrozenGrowth", _protectWater.Value);
+            _launderingAfter4AM.Value = ReadBool("LaunderingProgressAfter4AM", _launderingAfter4AM.Value);
             _diagnostics.Value = ReadBool("Diagnostics", _diagnostics.Value);
             // Keep valid user values unchanged. Ignore invalid negatives/zeros
             // where positive timing and multipliers are required.
@@ -487,6 +581,7 @@ public sealed class Mod : MelonMod
         var elapsed = _lastSeconds <= 0 ? 0 : Math.Max(0, current - _lastSeconds);
         _lastSeconds = current;
         bool frozen = EndOfDay();
+        AdvanceLaundering(elapsed, frozen);
         if (_diagnostics.Value)
         {
             if (frozen != _previousFrozen || _plantEnabled.Value != _previousPlantEnabled || current >= _nextStatusLog)
