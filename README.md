@@ -130,7 +130,11 @@ When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. Th
 - [Changelog](CHANGELOG.md) — changes by version.
 - [Release notes (draft)](RELEASE_NOTES.md) — release summary and verification checklist.
 
-The current release candidate is **v0.5.0**, prepared on the development branch only. No stable binary has been published for this branch yet. Download a release asset only after the corresponding GitHub Release is published and verified.
+**v0.5.0** is merged into `main` and its compiled ZIP has been tested. Download the official binary from GitHub Releases once the v0.5.0 release is published.
+
+## License
+
+Copyright © 2026 AnasaAyatan. All rights reserved. See [LICENSE](LICENSE) for the proprietary personal-use terms. Free, unmodified, non-commercial gameplay use of the officially distributed DLL is permitted; redistribution, modification, and commercial use require prior written permission, except where applicable law provides otherwise. This is **not an open-source license**.
 
 ## Support
 
