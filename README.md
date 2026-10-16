@@ -18,7 +18,7 @@ Schedule I normally pauses parts of the simulation at the end of the day. Schedu
 - **In-game settings:** Edit settings through the compatible phone Mod Manager.
 - **No payroll changes:** The mod leaves wage calculations to the game.
 
-> Very high growth multipliers may make plants finish almost instantly or skip visible intermediate stages. A plant's total growth progress still stays within 0–100%.
+> **Growth multiplier warning:** Very high values (such as 10× or more) can make plants mature almost instantly and skip visible growth stages. There is no artificial multiplier cap, but total plant progress remains within 0–100%. Start low and increase gradually.
 
 ## Requirements
 
