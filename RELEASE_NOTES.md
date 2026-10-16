@@ -13,7 +13,7 @@ All four main after-hours options are now **enabled by default on fresh installa
 
 Existing installations retain their saved settings. Upgrading will **not** automatically re-enable an option that a player previously disabled.
 
-The growth multiplier, native growth algorithm, task logic, wage handling, and JSON configuration format are unchanged. Diagnostics stay off by default for fresh installs.
+The growth multiplier, native growth algorithm, task logic, and JSON configuration format are unchanged. Diagnostics stay off by default for fresh installs.
 
 ## Install and update
 
@@ -31,7 +31,6 @@ Existing settings are retained from `UserData/MelonPreferences.cfg` and `UserDat
 - Botanists still require assigned pots and available watering supplies.
 - Pot protection suppresses the entire frozen-time pot minute update, which may affect other pot minute behavior.
 - Newer game versions and multiplayer require separate verification.
-- The mod leaves payroll unchanged.
 
 ## Before release
 
