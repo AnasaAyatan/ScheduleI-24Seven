@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.8-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.9-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -206,7 +206,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.8-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.9-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
@@ -228,6 +228,14 @@ public sealed class Mod : MelonMod
         var behaviourType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Behaviours.GrowContainerBehaviour");
         _assignWatering = behaviourType?.GetMethods(All).FirstOrDefault(m =>
             m.Name == "AssignAndEnable" && m.GetParameters().Length == 1);
+        if (_diagnostics.Value)
+        {
+            DumpBotanistApi(_botanistType);
+            var waterType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Behaviours.WaterPotBehaviour")
+                         ?? AccessTools.TypeByName("Il2CppScheduleOne.Employees.WaterPotBehaviour");
+            DumpBotanistApi(waterType);
+            DumpBotanistApi(behaviourType);
+        }
         if (update == null || _getPotForWatering == null || _waterBehaviourField == null ||
             _workBehavioursField == null || _isServer == null || _assignWatering == null)
         {
@@ -240,6 +248,30 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Experimental Botanist.UpdateBehaviour() watering fallback installed (disabled until enabled in settings).");
         }
         catch (Exception e) { MelonLogger.Warning("Botanist patch failed: " + e.Message); }
+    }
+
+    private static void DumpBotanistApi(Type? type)
+    {
+        if (type == null)
+        {
+            MelonLogger.Msg("Botanist API diagnostics: requested type unavailable.");
+            return;
+        }
+        MelonLogger.Msg("Botanist API diagnostics for " + type.FullName);
+        string[] terms = { "water", "work", "behav", "active", "pot", "assign", "enable", "task", "station" };
+        Type? cursor = type;
+        for (int depth = 0; cursor != null && depth < 3; cursor = cursor.BaseType, depth++)
+        {
+            int emitted = 0;
+            foreach (var member in cursor.GetMembers(All | BindingFlags.DeclaredOnly)
+                         .Where(m => terms.Any(t => m.Name.Contains(t, StringComparison.OrdinalIgnoreCase)))
+                         .Where(m => !m.Name.StartsWith("Native", StringComparison.Ordinal))
+                         .OrderBy(m => m.Name))
+            {
+                if (emitted++ >= 65) break;
+                MelonLogger.Msg($"Botanist API [{cursor.Name}] {member.MemberType}: {member}");
+            }
+        }
     }
 
     public static class BotanistPatch
