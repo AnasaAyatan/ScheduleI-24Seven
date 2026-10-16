@@ -1,6 +1,6 @@
-# Schedule I 24/7 — Stable Release Draft
+# Schedule I 24/7 v0.5.0 — Release Draft
 
-> **Draft only — not published.** Candidate: `v0.4.11-alpha` from `development/frozen-growth-watering`. Assign the stable version and publish only after the final build and in-game checks pass.
+> **Draft only — not published.** Candidate: `v0.5.0` on `development/frozen-growth-watering`. Based on the user-tested v0.4.11-alpha build; v0.5.0 itself still requires a successful build and in-game version check. Do not publish, tag, or merge without explicit approval.
 
 ## Keep working after 4 AM
 
@@ -55,7 +55,7 @@ The phone UI was tested with Mod Manager & Phone App 2.2.4; the mod also support
 - [ ] Confirm employees and botanists continue working after 4 AM.
 - [ ] Confirm plant growth and moisture behavior after 4 AM, at normal and higher multipliers.
 - [ ] Confirm normal payroll behavior and no new game errors.
-- [ ] Decide the stable version, update assembly and documentation consistently.
+- [x] Select v0.5.0 and update assembly and documentation; final compiled DLL still pending.
 - [ ] Merge the tested code into `main` **only after explicit approval**.
 - [ ] Attach a release-built DLL to GitHub Releases; verify its SHA-256 before announcing the download.
 
