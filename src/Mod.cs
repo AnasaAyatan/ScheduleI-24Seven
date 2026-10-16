@@ -386,10 +386,16 @@ public sealed class Mod : MelonMod
             _plantEnabled.Value = ReadBool("PlantGrowthAtEndOfDay", _plantEnabled.Value);
             _protectWater.Value = ReadBool("ProtectWaterDuringFrozenGrowth", _protectWater.Value);
             _diagnostics.Value = ReadBool("Diagnostics", _diagnostics.Value);
-            _secondsPerMinute.Value = Math.Max(1f, ReadFloat("SecondsPerPlantMinute", _secondsPerMinute.Value));
-            _realSecondsPerGameMinute.Value = Math.Max(0.01f, ReadFloat("RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value));
+            // Keep valid user values unchanged. Ignore invalid negatives/zeros
+            // where positive timing and multipliers are required.
+            float positive(string key, float existing) {
+                float proposed = ReadFloat(key, existing);
+                return proposed > 0f ? proposed : existing;
+            }
+            _secondsPerMinute.Value = positive("SecondsPerPlantMinute", _secondsPerMinute.Value);
+            _realSecondsPerGameMinute.Value = positive("RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value);
             _growthPerMinute.Value = Math.Max(0f, ReadFloat("NormalizedGrowthPerMinute", _growthPerMinute.Value));
-            _afterHoursBoost.Value = Math.Max(0.01f, ReadFloat("AfterHoursGrowthMultiplier", _afterHoursBoost.Value));
+            _afterHoursBoost.Value = positive("AfterHoursGrowthMultiplier", _afterHoursBoost.Value);
             _lastJsonWrite = modified;
             _jsonErrorReported = false;
             MelonLogger.Msg("Loaded editable JSON settings from " + _jsonPath);
