@@ -91,6 +91,21 @@ public sealed class Mod : MelonMod
         InitializeJson();
         _lastPreferencesSnapshot = PreferencesJson();
 
+        // Focused runtime API discovery for independent warehouse and laundering support.
+        // No transaction or shop-state changes are made during discovery.
+        if (_diagnostics.Value)
+        {
+            string[] typesToInspect =
+            {
+                "Il2CppScheduleOne.Property.Business",
+                "Il2CppScheduleOne.Money.LaunderingOperation",
+                "Il2CppScheduleOne.UI.LaunderingInterface",
+                "Il2CppScheduleOne.ObjectScripts.LaunderingStation",
+                "Il2CppScheduleOne.Storage.StorageDoorAnimation"
+            };
+            foreach (string name in typesToInspect)
+                DumpCommerceApi(name);
+        }
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
                   ?? AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Plant");
@@ -248,6 +263,28 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Botanist after-hours watering hook installed.");
         }
         catch (Exception e) { MelonLogger.Warning("Botanist patch failed: " + e.Message); }
+    }
+
+    private static void DumpCommerceApi(string qualifiedName)
+    {
+        // Only logs relevant signatures when Diagnostics is enabled; never invokes them.
+        Type? type = AccessTools.TypeByName(qualifiedName);
+        if (type == null)
+        {
+            MelonLogger.Msg("Commerce API unavailable: " + qualifiedName);
+            return;
+        }
+        string[] terms = { "launder", "operation", "capacity", "cash", "money", "open", "close", "time", "storage", "door", "start", "finish" };
+        MelonLogger.Msg("Commerce API signatures: " + qualifiedName);
+        int emitted = 0;
+        foreach (var member in type.GetMembers(All)
+            .Where(m => terms.Any(term => m.Name.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .Where(m => !m.Name.StartsWith("Native", StringComparison.Ordinal))
+            .OrderBy(m => m.Name))
+        {
+            if (emitted++ >= 45) break;
+            MelonLogger.Msg("Commerce API [" + type.Name + "] " + member.MemberType + ": " + member);
+        }
     }
 
     private static void DumpBotanistApi(Type? type)
