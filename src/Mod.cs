@@ -98,7 +98,12 @@ public sealed class Mod : MelonMod
             string[] typesToInspect =
             {
                 "Il2CppScheduleOne.Property.Business",
-                "Il2CppScheduleOne.Money.LaunderingOperation",
+                "Il2CppScheduleOne.Property.LaunderingOperation",
+                "Il2CppScheduleOne.Property.Property",
+                "Il2CppScheduleOne.Money.MoneyManager",
+                "Il2CppScheduleOne.GameTime.TimeManager",
+                "Il2CppScheduleOne.Economy.Shop",
+                "Il2CppScheduleOne.Economy.Supplier",
                 "Il2CppScheduleOne.UI.LaunderingInterface",
                 "Il2CppScheduleOne.ObjectScripts.LaunderingStation",
                 "Il2CppScheduleOne.Storage.StorageDoorAnimation"
@@ -220,7 +225,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.5.1 loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.5.1 loaded.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
@@ -274,7 +279,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Commerce API unavailable: " + qualifiedName);
             return;
         }
-        string[] terms = { "launder", "operation", "capacity", "cash", "money", "open", "close", "time", "storage", "door", "start", "finish" };
+        string[] terms = { "launder", "operation", "capacity", "cash", "money", "open", "close", "time", "storage", "door", "start", "finish", "complete", "minute", "hour", "schedule", "balance", "business", "inventory" };
         MelonLogger.Msg("Commerce API signatures: " + qualifiedName);
         int emitted = 0;
         foreach (var member in type.GetMembers(All)
@@ -282,7 +287,7 @@ public sealed class Mod : MelonMod
             .Where(m => !m.Name.StartsWith("Native", StringComparison.Ordinal))
             .OrderBy(m => m.Name))
         {
-            if (emitted++ >= 45) break;
+            if (emitted++ >= 65) break;
             MelonLogger.Msg("Commerce API [" + type.Name + "] " + member.MemberType + ": " + member);
         }
     }
