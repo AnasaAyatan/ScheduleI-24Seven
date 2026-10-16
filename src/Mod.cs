@@ -70,6 +70,9 @@ public sealed class Mod : MelonMod
     private static MelonPreferences_Entry<bool> _protectWater = null!;
     private static MelonPreferences_Entry<bool> _diagnostics = null!;
     private static MelonPreferences_Entry<bool> _launderingAfter4AM = null!;
+    // Configuration for the upcoming inventory-backed auto-launder engine.
+    // Deliberately no transaction writes until inventory debit is independently verified.
+    private static MelonPreferences_Entry<bool> _autoLaunder = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
     private static MelonPreferences_Entry<float> _growthPerMinute = null!;
     private static MelonPreferences_Entry<float> _afterHoursBoost = null!;
@@ -83,6 +86,9 @@ public sealed class Mod : MelonMod
             "Allow plants to grow after 4 AM", "Continue plant growth while the clock is frozen at the end of the day.");
         _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", true,
             "Botanists water after 4 AM", "Idle botanists continue normal watering tasks for their assigned pots.");
+        _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
+            "Auto laundering (inventory cash) [PREVIEW]",
+            "Planned: use maximum eligible inventory cash. Currently diagnostic-only; no transactions start.");
         _launderingAfter4AM = prefs.CreateEntry("LaunderingProgressAfter4AM", true,
             "Laundering continues after 4 AM",
             "Advance existing laundering operations while the clock is frozen using native completion.");
@@ -110,6 +116,12 @@ public sealed class Mod : MelonMod
                 "Il2CppScheduleOne.Property.LaunderingOperation",
                 "Il2CppScheduleOne.Property.Property",
                 "Il2CppScheduleOne.Money.MoneyManager",
+                "Il2CppScheduleOne.PlayerScripts.Player",
+                "Il2CppScheduleOne.PlayerScripts.PlayerInventory",
+                "Il2CppScheduleOne.ItemFramework.CashInstance",
+                "Il2CppScheduleOne.ItemFramework.ItemSlot",
+                "Il2CppScheduleOne.ItemFramework.Inventory",
+                "Il2CppScheduleOne.UI.LaunderingInterface",
                 "Il2CppScheduleOne.GameTime.TimeManager",
                 "Il2CppScheduleOne.Economy.Shop",
                 "Il2CppScheduleOne.Economy.Supplier",
@@ -448,6 +460,7 @@ public sealed class Mod : MelonMod
             BotanistWateringAfter4AM = _botanistWatering.Value,
             PlantGrowthAtEndOfDay = _plantEnabled.Value,
             ProtectWaterDuringFrozenGrowth = _protectWater.Value,
+            AutoLaunderFromInventory = _autoLaunder.Value,
             LaunderingProgressAfter4AM = _launderingAfter4AM.Value,
             Diagnostics = _diagnostics.Value,
             SecondsPerPlantMinute = _secondsPerMinute.Value,
@@ -520,6 +533,7 @@ public sealed class Mod : MelonMod
             _botanistWatering.Value = ReadBool("BotanistWateringAfter4AM", _botanistWatering.Value);
             _plantEnabled.Value = ReadBool("PlantGrowthAtEndOfDay", _plantEnabled.Value);
             _protectWater.Value = ReadBool("ProtectWaterDuringFrozenGrowth", _protectWater.Value);
+            _autoLaunder.Value = ReadBool("AutoLaunderFromInventory", _autoLaunder.Value);
             _launderingAfter4AM.Value = ReadBool("LaunderingProgressAfter4AM", _launderingAfter4AM.Value);
             _diagnostics.Value = ReadBool("Diagnostics", _diagnostics.Value);
             // Keep valid user values unchanged. Ignore invalid negatives/zeros
