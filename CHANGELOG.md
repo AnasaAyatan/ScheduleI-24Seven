@@ -4,11 +4,12 @@ All notable user-facing changes to Schedule I 24/7 are documented here.
 
 This repository uses a development branch for unreleased work. Versions and dates below describe the tested or candidate builds, not a published stable release.
 
-## [Unreleased] — stable release preparation
+## [0.5.0] — stable release candidate (unpublished)
 
-- Prepared release documentation and a verification checklist.
-- No changes to the tested gameplay mechanics in this documentation update.
-- Stable version number, published release date, and binary download are **not yet assigned**.
+- Prepared the first stable release candidate based on the user-tested v0.4.11-alpha build.
+- Set the mod's displayed version to v0.5.0, without changing gameplay logic.
+- Prepared installation guidance, release notes and a verification checklist.
+- Publication date and binary download remain pending. No merge or tag has been created.
 
 ## [0.4.11-alpha] — release candidate (tested in game)
 
