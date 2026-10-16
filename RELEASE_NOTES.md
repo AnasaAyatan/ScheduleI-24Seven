@@ -1,64 +1,46 @@
-# Schedule I 24/7 v0.5.0 — Release Draft
+# Schedule I 24/7 v0.5.1 — Release Draft
 
-> **Draft only — not published.** Candidate: `v0.5.0` on `development/frozen-growth-watering`. Based on the user-tested v0.4.11-alpha build; v0.5.0 itself still requires a successful build and in-game version check. Do not publish, tag, or merge without explicit approval.
+> **Unreleased development build.** Do not publish or merge until the v0.5.1 build is verified and approved. The current public stable release remains [v0.5.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
 
-## Keep working after 4 AM
+## What's changed
 
-Schedule I 24/7 keeps supported employees working and plants growing through the game's end-of-day freeze.
+All four main after-hours options are now **enabled by default on fresh installations**:
 
-### Highlights
+- Employees work after 4 AM — ON (unchanged)
+- Plants grow after 4 AM — ON (previously OFF)
+- Botanists water after 4 AM — ON (previously OFF)
+- Prevent water loss after 4 AM — ON (unchanged)
 
-- Employees can continue working after 4 AM.
-- Assigned botanists can water plants through their normal in-game behavior.
-- Plants can continue growing with an adjustable, uncapped positive growth multiplier.
-- Pot moisture is protected against frozen-time minute-based draining.
-- All settings are editable inside the compatible in-game phone Mod Manager.
-- Phone settings synchronize with `UserData/ScheduleI24Seven.json`.
-- Payroll and wage amounts are left to the game.
+Existing installations retain their saved settings. Upgrading will **not** automatically re-enable an option that a player previously disabled.
 
-### Growth multiplier warning
+The growth multiplier, native growth algorithm, task logic, wage handling, and JSON configuration format are unchanged. Diagnostics stay off by default for fresh installs.
 
-**Very high multipliers can cause plants to mature almost instantly and skip visible growth stages.** The multiplier has no artificial upper cap, but plant progress remains within 0–100%.
+## Install and update
 
-## Installation
-
-1. Install MelonLoader 0.7.3 Open-Beta for Schedule I (the tested loader version).
+1. Install MelonLoader for Schedule I (tested with v0.7.3 Open-Beta).
 2. Close the game.
-3. Download the compiled `ScheduleI24Seven.dll` release asset **once published**, or build it from source.
-4. Copy the DLL into `Schedule I/Mods/`.
-5. Launch the game, then optionally open Phone → Mod Manager → Schedule I 24/7 to configure it.
+3. Replace the existing `ScheduleI24Seven.dll` in the game's `Mods` folder with the newly built DLL once released.
+4. Launch the game and check the settings through the optional Mod Manager & Phone App v2.2.4.
 
-The phone UI was tested with Mod Manager & Phone App 2.2.4; the mod also supports direct JSON configuration.
+Existing settings are retained from `UserData/MelonPreferences.cfg` and `UserData/ScheduleI24Seven.json`. To enable previously disabled options, change them manually in the phone menu or JSON file.
 
-## Compatibility
+## Compatibility and notes
 
-- Tested game version: Schedule I v0.4.7f12.
-- Tested loader: MelonLoader v0.7.3 Open-Beta.
-- Supported phone UI tested with Mod Manager & Phone App v2.2.4.
-- Newer game versions and multiplayer require separate compatibility checks.
+- Tested previous release: Schedule I 0.4.7f12 / MelonLoader 0.7.3 Open-Beta.
+- Very high positive growth multipliers can make plants mature instantly or skip visible growth stages.
+- Botanists still require assigned pots and available watering supplies.
+- Pot protection suppresses the entire frozen-time pot minute update, which may affect other pot minute behavior.
+- Newer game versions and multiplayer require separate verification.
+- The mod leaves payroll unchanged.
 
-## Important limitations
+## Before release
 
-- The mod suppresses `Pot.OnMinPass()` during the freeze when water protection is enabled; other pot-minute logic may also pause.
-- During the frozen period, employee eligibility checks may be broader than simply checking the time.
-- Bots need valid pot assignments and ordinary watering supplies; the mod does not generate water.
-- Growth can jump to completion at extreme values. Back up saves before experimenting.
-- This is not an official game modification.
+- [ ] Pull development branch and build v0.5.1 successfully.
+- [ ] Confirm the loader identifies v0.5.1.
+- [ ] Verify the four defaults on a fresh settings profile, without replacing a user's actual settings.
+- [ ] Verify existing settings persist across upgrade.
+- [ ] Test work, watering, growth and moisture protection after 4 AM.
+- [ ] Package and checksum the DLL ZIP.
+- [ ] Obtain approval before merging, tagging or publishing to GitHub and Nexus Mods.
 
-## Final release checklist
-
-- [ ] Pull the latest `development/frozen-growth-watering` commits.
-- [ ] Build Release configuration successfully with no compile errors.
-- [ ] Confirm the installed mod version in MelonLoader and phone UI.
-- [ ] Confirm new growth-multiplier warning is visible in the phone settings.
-- [ ] Confirm settings save and persist after restarting.
-- [ ] Confirm employees and botanists continue working after 4 AM.
-- [ ] Confirm plant growth and moisture behavior after 4 AM, at normal and higher multipliers.
-- [ ] Confirm normal payroll behavior and no new game errors.
-- [x] Select v0.5.0 and update assembly and documentation; final compiled DLL still pending.
-- [ ] Merge the tested code into `main` **only after explicit approval**.
-- [ ] Attach a release-built DLL to GitHub Releases; verify its SHA-256 before announcing the download.
-
-## Credits and rights
-
-Developed by AnasaAyatan. Copyright © 2026 AnasaAyatan. All rights reserved. No game binaries included in the source repository.
+Copyright © 2026 AnasaAyatan. All rights reserved. See [LICENSE](LICENSE).
