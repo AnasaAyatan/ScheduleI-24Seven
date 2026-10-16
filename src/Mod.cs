@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.5.0", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.5.1", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -205,7 +205,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.5.0 loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.5.1 loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
