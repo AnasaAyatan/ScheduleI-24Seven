@@ -106,3 +106,7 @@ Phone settings persist in the game's `UserData/MelonPreferences.cfg`, and the mo
 ## 0.4.8-alpha experimental botanist watering
 
 Adds the optional **Continue botanist watering after 4 AM** phone setting (`BotanistWateringAfter4AM`, default false). The patch attempts to queue the game's actual watering behaviour for an idle, server-authoritative botanist using normal pot selection; it does not set a pot's moisture value directly, and does not touch employee wages. API discovery is fail-closed, logging which game members are missing. The build and actual NPC watering remain unverified. Before testing, back up your save, build, install, restart the game, and check the MelonLoader log for either a patch-installed message or an incomplete-API warning. Only enable this experimental option after startup is clean.
+
+## 0.4.10-alpha botanist API correction
+
+Diagnostics confirmed that `Botanist._waterPotBehaviour` is an IL2CPP **property**, not a field, and `IsAnyWorkInProgress()` is the game's own active-task check. The watering behavior's actual namespace is `Il2CppScheduleOne.NPCs.Behaviour.WaterPotBehaviour`. The experimental patch now binds those APIs and looks for a compatible `AssignAndEnable` method. It still fails closed if no compatible method exists; gameplay watering and compilation remain unverified. Keep `BotanistWateringAfter4AM` disabled until log confirms installation and backup save is available.
