@@ -125,6 +125,13 @@ When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. Th
 - Multiplayer host/server behavior should be tested separately.
 - Payroll methods and wage amounts are not modified by this mod.
 
+## Releases and history
+
+- [Changelog](CHANGELOG.md) — changes by version.
+- [Release notes (draft)](RELEASE_NOTES.md) — release summary and verification checklist.
+
+The current development candidate is **v0.4.11-alpha**. No stable binary has been published for this branch yet. Download a release asset only after the corresponding GitHub Release is published and verified.
+
 ## Support
 
 When reporting an issue, include the mod version, game version, what happened, relevant settings, and the MelonLoader log.
