@@ -2,7 +2,7 @@
 
 Keep employees working and plants growing after **4 AM** in [Schedule I](https://store.steampowered.com/app/3164500/Schedule_I/).
 
-Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps supported work and plant growth going during that frozen-time period. Employees can continue working, and botanists can water pots using their **normal in-game behavior**. The mod does **not** instantly fill pots or modify payroll.
+Schedule I normally pauses parts of the simulation at the end of the day. But I pay for them to work dammit. Employees can continue working, and botanists can water pots using their **normal in-game behavior**. The mod does **not** but *can* instantly fill pots or modify payroll.
 
 **Version:** 0.5.0 (stable release candidate; not published)  
 **Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
