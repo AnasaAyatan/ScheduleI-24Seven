@@ -73,9 +73,9 @@ public sealed class Mod : MelonMod
     {
         var prefs = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7");
         _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true, "Employees work after 4 AM");
-        _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", false,
+        _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", true,
             "Allow plants to grow after 4 AM", "Continue plant growth while the clock is frozen at the end of the day.");
-        _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", false,
+        _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", true,
             "Botanists water after 4 AM", "Idle botanists continue normal watering tasks for their assigned pots.");
         _diagnostics = prefs.CreateEntry("Diagnostics", false, "Enable debug logging", "Write extra technical details to the MelonLoader log.");
         _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true, "Prevent water loss after 4 AM", "Stop frozen-time pot moisture drain. Normal botanist watering still adds water.");
