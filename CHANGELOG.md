@@ -4,12 +4,24 @@ All notable user-facing changes to Schedule I 24/7 are documented here.
 
 This repository uses a development branch for unreleased work. Versions and dates below describe the tested or candidate builds, not a published stable release.
 
-## [0.5.0] — stable release candidate (unpublished)
+## [0.5.1] — unreleased
+
+### Changed
+- Enabled after-hours plant growth by default for fresh installations.
+- Enabled after-hours botanist watering by default for fresh installations.
+- Employee work and pot moisture protection remain enabled by default.
+- Existing users' saved JSON and MelonPreferences settings remain unchanged.
+- No change to payroll, growth algorithms, or watering task logic.
+
+### Verification
+- Build and in-game verification pending before publication.
+
+## [0.5.0] — published stable release
 
 - Prepared the first stable release candidate based on the user-tested v0.4.11-alpha build.
 - Set the mod's displayed version to v0.5.0, without changing gameplay logic.
 - Prepared installation guidance, release notes and a verification checklist.
-- Publication date and binary download remain pending. No merge or tag has been created.
+- Published on GitHub as v0.5.0; release ZIP available through GitHub Releases.
 
 ## [0.4.11-alpha] — release candidate (tested in game)
 
