@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.9-alpha", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.4.10-alpha", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
@@ -41,8 +41,8 @@ public sealed class Mod : MelonMod
     private static Type? _botanistType;
     private static MethodInfo? _getPotForWatering;
     private static MethodInfo? _assignWatering;
-    private static FieldInfo? _waterBehaviourField;
-    private static FieldInfo? _workBehavioursField;
+    private static PropertyInfo? _waterBehaviourProperty;
+    private static MethodInfo? _anyWorkInProgress;
     private static PropertyInfo? _isServer;
     private static bool _botanistErrorLogged;
     private static double _nextBotanistTrace;
@@ -206,7 +206,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.4.9-alpha loaded; game-managed wages unchanged.");
+        MelonLogger.Msg("Schedule I 24/7 v0.4.10-alpha loaded; game-managed wages unchanged.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
@@ -221,25 +221,26 @@ public sealed class Mod : MelonMod
         _getPotForWatering = _botanistType.GetMethods(All).FirstOrDefault(m =>
             m.Name == "GetPotForWatering" && m.GetParameters().Length == 1 &&
             m.GetParameters()[0].ParameterType == typeof(float));
-        _waterBehaviourField = _botanistType.GetField("_waterPotBehaviour", All);
-        _workBehavioursField = _botanistType.GetField("_workBehaviours", All);
+        _waterBehaviourProperty = _botanistType.GetProperty("_waterPotBehaviour", All);
+        _anyWorkInProgress = _botanistType.GetMethod("IsAnyWorkInProgress", All, null, Type.EmptyTypes, null);
         _isServer = _botanistType.GetProperty("IsServer", All) ??
                     _botanistType.BaseType?.GetProperty("IsServer", All);
-        var behaviourType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Behaviours.GrowContainerBehaviour");
+        var behaviourType = _waterBehaviourProperty?.PropertyType;
         _assignWatering = behaviourType?.GetMethods(All).FirstOrDefault(m =>
-            m.Name == "AssignAndEnable" && m.GetParameters().Length == 1);
+            m.Name == "AssignAndEnable" && m.GetParameters().Length == 1 &&
+            _getPotForWatering != null &&
+            m.GetParameters()[0].ParameterType.IsAssignableFrom(_getPotForWatering.ReturnType));
         if (_diagnostics.Value)
         {
             DumpBotanistApi(_botanistType);
-            var waterType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Behaviours.WaterPotBehaviour")
-                         ?? AccessTools.TypeByName("Il2CppScheduleOne.Employees.WaterPotBehaviour");
+            var waterType = AccessTools.TypeByName("Il2CppScheduleOne.NPCs.Behaviour.WaterPotBehaviour");
             DumpBotanistApi(waterType);
             DumpBotanistApi(behaviourType);
         }
-        if (update == null || _getPotForWatering == null || _waterBehaviourField == null ||
-            _workBehavioursField == null || _isServer == null || _assignWatering == null)
+        if (update == null || _getPotForWatering == null || _waterBehaviourProperty == null ||
+            _anyWorkInProgress == null || _isServer == null || _assignWatering == null)
         {
-            MelonLogger.Warning($"Botanist watering API incomplete: update={update != null}, getPot={_getPotForWatering != null}, waterBehaviour={_waterBehaviourField != null}, activeWork={_workBehavioursField != null}, isServer={_isServer != null}, assign={_assignWatering != null}. No watering patch applied.");
+            MelonLogger.Warning($"Botanist watering API incomplete: update={update != null}, getPot={_getPotForWatering != null}, waterBehaviour={_waterBehaviourProperty != null}, activeWork={_anyWorkInProgress != null}, isServer={_isServer != null}, assign={_assignWatering != null}. No watering patch applied.");
             return;
         }
         try
@@ -282,22 +283,11 @@ public sealed class Mod : MelonMod
             try
             {
                 if (_isServer?.GetValue(__instance) is not true) return;
-                // Never interrupt another job. If the IL2CPP list cannot be
-                // inspected, fail closed rather than risking job reassignment.
-                object? work = _workBehavioursField?.GetValue(__instance);
-                if (work == null) return;
-                bool observedAny = false;
-                foreach (var b in EnumeratePlants(work))
-                {
-                    observedAny = true;
-                    var active = b.GetType().GetProperty("Active", All);
-                    if (active == null) return;
-                    if (active.GetValue(b) is true) return;
-                }
-                if (!observedAny) return;
+                // Use the game's own work-in-progress check.
+                if (_anyWorkInProgress?.Invoke(__instance, Array.Empty<object>()) is not false) return;
                 object? pot = _getPotForWatering?.Invoke(__instance, new object[] { 0.01f });
                 if (pot == null) return;
-                object? behaviour = _waterBehaviourField?.GetValue(__instance);
+                object? behaviour = _waterBehaviourProperty?.GetValue(__instance);
                 if (behaviour == null) return;
                 _assignWatering?.Invoke(behaviour, new[] { pot });
                 if (_diagnostics.Value && Watch.Elapsed.TotalSeconds >= _nextBotanistTrace)
