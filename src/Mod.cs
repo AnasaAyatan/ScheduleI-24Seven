@@ -655,7 +655,10 @@ public sealed class Mod : MelonMod
                     if (next != current) _operationMinutes.SetValue(operation, next);
                     if (next >= total)
                     {
-                        if (_diagnostics.Value) MelonLogger.Msg("Laundering trace: invoking native completion.");
+                        if (_diagnostics.Value)
+                            MelonLogger.Msg("TDD after-4AM laundering completion: previousMinutes=" +
+                                current + ", targetMinutes=" + next + ", completionThreshold=" + total +
+                                ", authoritativeServer=true, nativeCompletionRequested=true.");
                         _completeOperation.Invoke(business, new[] { operation });
                     }
                 }
