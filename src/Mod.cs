@@ -497,6 +497,8 @@ public sealed class Mod : MelonMod
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
                 if (_diagnostics.Value)
                     MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_autoLaunder.Value}.");
+                if (_diagnostics.Value)
+                    MelonLogger.Msg($"Auto laundering gates: transactions={_allowAutoTransactions.Value}, halted={_autoStartHalted}, pending={_pendingAutoBusiness != null}, authoritative={authoritative}, active={active}, room={room:F2}, cooldownRemaining={Math.Max(0,_nextAutoStart-now):F1}.");
                 if (!_allowAutoTransactions.Value || _autoStartHalted || _pendingAutoBusiness != null ||
                     !authoritative || active != 0 || room < 1 || now < _nextAutoStart)
                     continue;
@@ -504,7 +506,12 @@ public sealed class Mod : MelonMod
                 // uncertain debit/network failure rather than risking repeats.
                 var managerType = _cashBalanceProperty?.DeclaringType;
                 var manager = managerType?.GetProperty("Instance", All)?.GetValue(null);
-                if (manager == null || _cashBalanceProperty == null) continue;
+                if (manager == null || _cashBalanceProperty == null)
+                {
+                    if (_diagnostics.Value)
+                        MelonLogger.Warning($"Auto laundering skipped: MoneyManager.Instance={(manager != null)}, cashBalanceProperty={_cashBalanceProperty != null}. No cash deducted.");
+                    continue;
+                }
                 float cash = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
                 if (!float.IsFinite(cash) || cash < 0) continue;
                 float amount = (float)Math.Floor(Math.Min(cash, room));
