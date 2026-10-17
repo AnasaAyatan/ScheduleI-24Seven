@@ -64,6 +64,9 @@ public sealed class Mod : MelonMod
     private static double _launderingCarry;
     private static bool _launderingFailureReported;
     private static double _nextLaunderingTrace;
+    private static double _nextAutomaticLaunderingCheck;
+    private static readonly Dictionary<object, double> _lastAutomaticRequest = new();
+    private static bool _autoLaunderApiWarning;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
