@@ -127,6 +127,7 @@ public sealed class Mod : MelonMod
                 "Il2CppScheduleOne.ItemFramework.CashInstance",
                 "Il2CppScheduleOne.ItemFramework.ItemSlot",
                 "Il2CppScheduleOne.ItemFramework.Inventory",
+                "Il2CppScheduleOne.Money.CashSlot",
                 "Il2CppScheduleOne.UI.LaunderingInterface",
                 "Il2CppScheduleOne.GameTime.TimeManager",
                 "Il2CppScheduleOne.Economy.Shop",
@@ -137,6 +138,11 @@ public sealed class Mod : MelonMod
             };
             foreach (string name in typesToInspect)
                 DumpCommerceApi(name);
+            // Inspect native transaction entry points without invoking or modifying them.
+            DumpTransactionApi("Il2CppScheduleOne.UI.LaunderingInterface");
+            DumpTransactionApi("Il2CppScheduleOne.Money.CashSlot");
+            DumpTransactionApi("Il2CppScheduleOne.ItemFramework.CashInstance");
+            DumpTransactionApi("Il2CppScheduleOne.PlayerScripts.PlayerInventory");
         }
         InitializeLaunderingProgress();
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
@@ -395,6 +401,23 @@ public sealed class Mod : MelonMod
                 MelonLogger.Error("After-hours laundering disabled for this session: " + ex);
             }
         }
+    }
+
+    private static void DumpTransactionApi(string name)
+    {
+        Type? t = AccessTools.TypeByName(name);
+        if (t == null) { MelonLogger.Msg("Transaction API unavailable: " + name); return; }
+        MelonLogger.Msg("Transaction API signatures: " + name);
+        var members = t.GetMembers(All | BindingFlags.DeclaredOnly)
+            .Where(m => !m.Name.StartsWith("Native", StringComparison.Ordinal)
+                 && !m.Name.StartsWith("RpcReader", StringComparison.Ordinal)
+                 && !m.Name.StartsWith("RpcWriter", StringComparison.Ordinal)
+                 && !m.Name.StartsWith("RpcLogic", StringComparison.Ordinal)
+                 && !m.Name.StartsWith("get_", StringComparison.Ordinal)
+                 && !m.Name.StartsWith("set_", StringComparison.Ordinal))
+            .OrderBy(m => m.Name).Take(100);
+        foreach (var member in members)
+            MelonLogger.Msg("Transaction API [" + t.Name + "] " + member.MemberType + ": " + member);
     }
 
     private static void DumpCommerceApi(string qualifiedName)
