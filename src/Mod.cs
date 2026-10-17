@@ -151,6 +151,7 @@ public sealed class Mod : MelonMod
         _timeType = AccessTools.TypeByName("Il2CppScheduleOne.GameTime.TimeManager");
         _harmony = new HarmonyLib.Harmony("com.anasaayatan.schedulei24seven");
         InitializeBotanistPatch();
+        InitializeManualLaunderingTrace();
         // Observe the live game instance rather than invoking a non-static getter on null.
         var getter = _timeType?.GetProperty("IsEndOfDay", All)?.GetGetMethod(true);
         if (getter != null && getter.ReturnType == typeof(bool))
@@ -400,6 +401,63 @@ public sealed class Mod : MelonMod
                 _launderingFailureReported = true;
                 MelonLogger.Error("After-hours laundering disabled for this session: " + ex);
             }
+        }
+    }
+
+    private static void InitializeManualLaunderingTrace()
+    {
+        var interfaceType = AccessTools.TypeByName("Il2CppScheduleOne.UI.LaunderingInterface");
+        var confirm = interfaceType?.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null);
+        if (confirm == null)
+        {
+            MelonLogger.Warning("Manual laundering trace unavailable: ConfirmAmount() not found.");
+            return;
+        }
+        try
+        {
+            _harmony!.Patch(confirm,
+                prefix: new HarmonyMethod(typeof(ManualLaunderingTrace), nameof(ManualLaunderingTrace.Before)),
+                postfix: new HarmonyMethod(typeof(ManualLaunderingTrace), nameof(ManualLaunderingTrace.After)));
+            MelonLogger.Msg("Read-only manual laundering confirmation tracing enabled.");
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Warning("Manual laundering trace could not be installed: " + e.Message);
+        }
+    }
+
+    private static int CountLaunderingOperations()
+    {
+        try
+        {
+            if (_ownedBusinesses == null || _businessOperations == null) return -1;
+            int count = 0;
+            foreach (var business in EnumerateCommerceCollection(_ownedBusinesses.GetValue(null)))
+                count += EnumerateCommerceCollection(_businessOperations.GetValue(business)).Count();
+            return count;
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Warning("Could not count laundering operations: " + e.Message);
+            return -1;
+        }
+    }
+
+    public static class ManualLaunderingTrace
+    {
+        public static void Before(ref int __state)
+        {
+            __state = CountLaunderingOperations();
+            if (_diagnostics.Value)
+                MelonLogger.Msg("Manual laundering confirm: operations before=" + __state);
+        }
+
+        public static void After(int __state)
+        {
+            if (_diagnostics.Value)
+                MelonLogger.Msg("Manual laundering confirm: operations immediately after=" +
+                    CountLaunderingOperations() + ", before=" + __state +
+                    " (network synchronization may follow later).");
         }
     }
 
