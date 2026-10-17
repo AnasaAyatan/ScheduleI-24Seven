@@ -87,6 +87,7 @@ public sealed class Mod : MelonMod
     // Configuration for the upcoming inventory-backed auto-launder engine.
     // Deliberately no transaction writes until inventory debit is independently verified.
     private static MelonPreferences_Entry<bool> _autoLaunder = null!;
+    private static MelonPreferences_Entry<float> _autoLaunderBusinessCap = null!;
     private static MelonPreferences_Entry<bool> _allowAutoTransactions = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
     private static MelonPreferences_Entry<float> _growthPerMinute = null!;
@@ -111,6 +112,9 @@ public sealed class Mod : MelonMod
             "03 Laundering | Continue after 4 AM", "Existing laundering operations keep progressing.");
         _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
             "03 Laundering | Check available capacity", "Read-only preparation for auto laundering. Does not spend cash or start jobs.");
+        _autoLaunderBusinessCap = prefs.CreateEntry("AutoLaunderBusinessCap", 0f,
+            "03 Laundering | Maximum per business (0 = full capacity)",
+            "Dry-run planning limit in cash per business operation. 0 uses all available business capacity.");
         _allowAutoTransactions = prefs.CreateEntry("EnableAutoLaunderTransactions", false,
             "03 Laundering | Automatic payments unavailable",
             "Temporarily disabled: previous experiment deducted cash without creating a laundering operation.");
@@ -558,7 +562,9 @@ public sealed class Mod : MelonMod
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
                 if (_diagnostics.Value && float.IsFinite(simulatedCash) && authoritative && active == 0)
                 {
-                    float planned = (float)Math.Floor(Math.Max(0, Math.Min(simulatedCash, room)));
+                    float selectedCap = _autoLaunderBusinessCap.Value;
+                    float cap = float.IsFinite(selectedCap) && selectedCap > 0 ? selectedCap : room;
+                    float planned = (float)Math.Floor(Math.Max(0, Math.Min(simulatedCash, Math.Min(room, cap))));
                     simulatedCash -= planned;
                     MelonLogger.Msg("TDD laundering allocation preview: businessRoom=" + room.ToString("F2") +
                         ", plannedAmount=" + planned.ToString("F2") +
