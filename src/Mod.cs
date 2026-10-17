@@ -526,7 +526,8 @@ public sealed class Mod : MelonMod
         if (!_allowAutoTransactions.Value)
         {
             _previousTransactionOptIn = false;
-            if (_pendingAutoBusiness == null) return;
+            // Keep the read-only planner running while paid transactions are off.
+            // This lets development tests use the safe default OFF position.
         }
         else _previousTransactionOptIn = true;
         if (now < _nextAutomaticLaunderingCheck) return;
