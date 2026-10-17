@@ -472,19 +472,36 @@ public sealed class Mod : MelonMod
 
     private static string PreferencesJson()
     {
+        // Human-readable categories. Keys remain unchanged for compatibility
+        // with existing flat settings and MelonPreferences.
         var current = new
         {
-            EmployeesAtEndOfDay = _employeeEnabled.Value,
-            BotanistWateringAfter4AM = _botanistWatering.Value,
-            PlantGrowthAtEndOfDay = _plantEnabled.Value,
-            ProtectWaterDuringFrozenGrowth = _protectWater.Value,
-            AutoLaunderFromInventory = _autoLaunder.Value,
-            LaunderingProgressAfter4AM = _launderingAfter4AM.Value,
-            Diagnostics = _diagnostics.Value,
-            SecondsPerPlantMinute = _secondsPerMinute.Value,
-            RealSecondsPerGameMinute = _realSecondsPerGameMinute.Value,
-            NormalizedGrowthPerMinute = _growthPerMinute.Value,
-            AfterHoursGrowthMultiplier = _afterHoursBoost.Value
+            Employees = new
+            {
+                EmployeesAtEndOfDay = _employeeEnabled.Value,
+                BotanistWateringAfter4AM = _botanistWatering.Value
+            },
+            Plants = new
+            {
+                PlantGrowthAtEndOfDay = _plantEnabled.Value,
+                ProtectWaterDuringFrozenGrowth = _protectWater.Value,
+                SecondsPerPlantMinute = _secondsPerMinute.Value,
+                NormalizedGrowthPerMinute = _growthPerMinute.Value,
+                AfterHoursGrowthMultiplier = _afterHoursBoost.Value
+            },
+            Laundering = new
+            {
+                AutoLaunderFromInventory = _autoLaunder.Value,
+                LaunderingProgressAfter4AM = _launderingAfter4AM.Value
+            },
+            Simulation = new
+            {
+                RealSecondsPerGameMinute = _realSecondsPerGameMinute.Value
+            },
+            Advanced = new
+            {
+                Diagnostics = _diagnostics.Value
+            }
         };
         return JsonSerializer.Serialize(current, new JsonSerializerOptions { WriteIndented = true });
     }
@@ -538,32 +555,46 @@ public sealed class Mod : MelonMod
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
                 throw new InvalidDataException("JSON settings must be an object.");
-            bool ReadBool(string key, bool existing) =>
-                root.TryGetProperty(key, out var p) &&
-                (p.ValueKind == JsonValueKind.True || p.ValueKind == JsonValueKind.False)
+            // Prefer a setting in its category; accept legacy top-level keys.
+            JsonElement Setting(string category, string key)
+            {
+                if (root.TryGetProperty(category, out var group) &&
+                    group.ValueKind == JsonValueKind.Object &&
+                    group.TryGetProperty(key, out var nested))
+                    return nested;
+                return root.TryGetProperty(key, out var flat) ? flat : default;
+            }
+            bool ReadBool(string category, string key, bool existing)
+            {
+                var p = Setting(category, key);
+                return p.ValueKind == JsonValueKind.True || p.ValueKind == JsonValueKind.False
                     ? p.GetBoolean() : existing;
-            float ReadFloat(string key, float existing) =>
-                root.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Number &&
-                p.TryGetSingle(out float value) && float.IsFinite(value) ? value : existing;
+            }
+            float ReadFloat(string category, string key, float existing)
+            {
+                var p = Setting(category, key);
+                return p.ValueKind == JsonValueKind.Number &&
+                    p.TryGetSingle(out float value) && float.IsFinite(value) ? value : existing;
+            }
             // Parse the full file before applying anything, so invalid JSON
             // cannot partially overwrite live preferences.
-            _employeeEnabled.Value = ReadBool("EmployeesAtEndOfDay", _employeeEnabled.Value);
-            _botanistWatering.Value = ReadBool("BotanistWateringAfter4AM", _botanistWatering.Value);
-            _plantEnabled.Value = ReadBool("PlantGrowthAtEndOfDay", _plantEnabled.Value);
-            _protectWater.Value = ReadBool("ProtectWaterDuringFrozenGrowth", _protectWater.Value);
-            _autoLaunder.Value = ReadBool("AutoLaunderFromInventory", _autoLaunder.Value);
-            _launderingAfter4AM.Value = ReadBool("LaunderingProgressAfter4AM", _launderingAfter4AM.Value);
-            _diagnostics.Value = ReadBool("Diagnostics", _diagnostics.Value);
+            _employeeEnabled.Value = ReadBool("Employees", "EmployeesAtEndOfDay", _employeeEnabled.Value);
+            _botanistWatering.Value = ReadBool("Employees", "BotanistWateringAfter4AM", _botanistWatering.Value);
+            _plantEnabled.Value = ReadBool("Plants", "PlantGrowthAtEndOfDay", _plantEnabled.Value);
+            _protectWater.Value = ReadBool("Plants", "ProtectWaterDuringFrozenGrowth", _protectWater.Value);
+            _autoLaunder.Value = ReadBool("Laundering", "AutoLaunderFromInventory", _autoLaunder.Value);
+            _launderingAfter4AM.Value = ReadBool("Laundering", "LaunderingProgressAfter4AM", _launderingAfter4AM.Value);
+            _diagnostics.Value = ReadBool("Advanced", "Diagnostics", _diagnostics.Value);
             // Keep valid user values unchanged. Ignore invalid negatives/zeros
             // where positive timing and multipliers are required.
-            float positive(string key, float existing) {
-                float proposed = ReadFloat(key, existing);
+            float positive(string category, string key, float existing) {
+                float proposed = ReadFloat(category, key, existing);
                 return proposed > 0f ? proposed : existing;
             }
-            _secondsPerMinute.Value = positive("SecondsPerPlantMinute", _secondsPerMinute.Value);
-            _realSecondsPerGameMinute.Value = positive("RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value);
-            _growthPerMinute.Value = Math.Max(0f, ReadFloat("NormalizedGrowthPerMinute", _growthPerMinute.Value));
-            _afterHoursBoost.Value = positive("AfterHoursGrowthMultiplier", _afterHoursBoost.Value);
+            _secondsPerMinute.Value = positive("Plants", "SecondsPerPlantMinute", _secondsPerMinute.Value);
+            _realSecondsPerGameMinute.Value = positive("Simulation", "RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value);
+            _growthPerMinute.Value = Math.Max(0f, ReadFloat("Plants", "NormalizedGrowthPerMinute", _growthPerMinute.Value));
+            _afterHoursBoost.Value = positive("Plants", "AfterHoursGrowthMultiplier", _afterHoursBoost.Value);
             _lastJsonWrite = modified;
             _jsonErrorReported = false;
             MelonLogger.Msg("Loaded editable JSON settings from " + _jsonPath);
