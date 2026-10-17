@@ -114,10 +114,10 @@ public sealed class Mod : MelonMod
             "03 Laundering | Check available capacity", "Read-only preparation for auto laundering. Does not spend cash or start jobs.");
         _autoLaunderBusinessCap = prefs.CreateEntry("AutoLaunderBusinessCap", 0f,
             "03 Laundering | Maximum per business (0 = full capacity)",
-            "Dry-run planning limit in cash per business operation. 0 uses all available business capacity.");
+            "Caps planned allocation for each eligible owned business. 0 uses available capacity; payments are currently disabled.");
         _allowAutoTransactions = prefs.CreateEntry("EnableAutoLaunderTransactions", false,
-            "03 Laundering | Automatic payments unavailable",
-            "Temporarily disabled: previous experiment deducted cash without creating a laundering operation.");
+            "03 Laundering | Legacy payment setting (inactive)",
+            "This legacy toggle is inactive. Automatic payments cannot start in this development build.");
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
             "04 Advanced | Seconds per game minute", "1 = regular test speed; 0.05 = very fast. Affects plants and laundering.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f,
