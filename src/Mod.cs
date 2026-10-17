@@ -66,6 +66,12 @@ public sealed class Mod : MelonMod
     private static double _nextLaunderingTrace;
     private static double _nextAutomaticLaunderingCheck;
     private static bool _autoLaunderApiWarning;
+    private static double _nextAutoStart = 0;
+    private static MethodInfo? _nativeLaunderStart;
+    private static MethodInfo? _nativeCashChange;
+    private static PropertyInfo? _cashBalanceProperty;
+    private static object? _moneyManagerInstance;
+    private static bool _autoStartHalted;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
@@ -76,6 +82,7 @@ public sealed class Mod : MelonMod
     // Configuration for the upcoming inventory-backed auto-launder engine.
     // Deliberately no transaction writes until inventory debit is independently verified.
     private static MelonPreferences_Entry<bool> _autoLaunder = null!;
+    private static MelonPreferences_Entry<bool> _allowAutoTransactions = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
     private static MelonPreferences_Entry<float> _growthPerMinute = null!;
     private static MelonPreferences_Entry<float> _afterHoursBoost = null!;
@@ -99,6 +106,9 @@ public sealed class Mod : MelonMod
             "03 Laundering | Continue after 4 AM", "Existing laundering operations keep progressing.");
         _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
             "03 Laundering | Check available capacity", "Read-only preparation for auto laundering. Does not spend cash or start jobs.");
+        _allowAutoTransactions = prefs.CreateEntry("EnableAutoLaunderTransactions", false,
+            "03 Laundering | Enable automatic transactions (EXPERIMENTAL)",
+            "Off by default. When enabled, spends carried cash and starts one laundering job per eligible owned business. Back up your save first.");
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
             "04 Advanced | Seconds per game minute", "1 = regular test speed; 0.05 = very fast. Affects plants and laundering.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f,
@@ -147,6 +157,7 @@ public sealed class Mod : MelonMod
             DumpTransactionApi("Il2CppScheduleOne.PlayerScripts.PlayerInventory");
         }
         InitializeLaunderingProgress();
+        InitializeAutoLaunderTransactions();
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
         _plantType = AccessTools.TypeByName("Il2CppScheduleOne.Growing.Plant")
                   ?? AccessTools.TypeByName("Il2CppScheduleOne.ObjectScripts.Plant");
@@ -348,6 +359,61 @@ public sealed class Mod : MelonMod
         }
     }
 
+    private static void InitializeAutoLaunderTransactions()
+    {
+        // Only use the game's public wrapper methods, not RPC internals.
+        _nativeLaunderStart = _businessType?.GetMethod("StartLaunderingOperation",
+            All, null, new[] { typeof(float), typeof(int) }, null);
+        var moneyType = AccessTools.TypeByName("Il2CppScheduleOne.Money.MoneyManager");
+        _nativeCashChange = moneyType?.GetMethod("ChangeCashBalance", All, null,
+            new[] { typeof(float), typeof(bool), typeof(bool) }, null);
+        _cashBalanceProperty = moneyType?.GetProperty("cashBalance", All);
+        if (_nativeLaunderStart == null || _nativeCashChange == null || _cashBalanceProperty == null)
+            MelonLogger.Warning("Auto laundering transactions unavailable: required native methods missing.");
+    }
+
+    private static void StartAutoLaundering(object business, float amount)
+    {
+        if (_autoStartHalted || _nativeLaunderStart == null || _nativeCashChange == null ||
+            _cashBalanceProperty == null || amount < 1 || !float.IsFinite(amount)) return;
+        try
+        {
+            var managerType = _cashBalanceProperty.DeclaringType;
+            var manager = managerType?.GetProperty("Instance", All)?.GetValue(null);
+            if (manager == null) return;
+            float before = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
+            if (!float.IsFinite(before) || before < amount) return;
+            // Debit through MoneyManager, not directly through CashInstance.
+            // Parameters match the native ChangeCashBalance(float,bool,bool) wrapper.
+            _nativeCashChange.Invoke(manager, new object[] { -amount, true, true });
+            float after = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
+            if (!float.IsFinite(after) || after > before - amount + 0.02f)
+            {
+                _autoStartHalted = true;
+                MelonLogger.Error("Auto laundering halted: native cash debit could not be verified. No job started.");
+                return;
+            }
+            try
+            {
+                // The game handles creation and synchronization through its own server RPC.
+                _nativeLaunderStart.Invoke(business, new object[] { amount, 1440 });
+                MelonLogger.Msg("Auto laundering requested a paid operation of $" + amount.ToString("F2") + ".");
+            }
+            catch (Exception e)
+            {
+                // A remote invocation can fail after sending its request. Never
+                // blindly refund money: that could duplicate funds.
+                _autoStartHalted = true;
+                MelonLogger.Error("Auto laundering halted after debit: operation result uncertain; inspect save before retrying. " + e.Message);
+            }
+        }
+        catch (Exception e)
+        {
+            _autoStartHalted = true;
+            MelonLogger.Error("Auto laundering halted due to transaction failure: " + e.Message);
+        }
+    }
+
     private static void EvaluateAutomaticLaundering()
     {
         if (!_autoLaunder.Value || _ownedBusinesses == null || _businessOperations == null)
@@ -382,9 +448,20 @@ public sealed class Mod : MelonMod
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
                 if (_diagnostics.Value)
                     MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_autoLaunder.Value}.");
-                // This phase is deliberately read-only. We must first identify
-                // a native payment operation that cannot leave a failed job
-                // debited or a successful job unpaid.
+                if (!_allowAutoTransactions.Value || _autoStartHalted ||
+                    !authoritative || active != 0 || room < 1 || now < _nextAutoStart)
+                    continue;
+                // One request per polling window. Stop all future requests on
+                // uncertain debit/network failure rather than risking repeats.
+                var managerType = _cashBalanceProperty?.DeclaringType;
+                var manager = managerType?.GetProperty("Instance", All)?.GetValue(null);
+                if (manager == null || _cashBalanceProperty == null) continue;
+                float cash = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
+                if (!float.IsFinite(cash)) continue;
+                float amount = (float)Math.Floor(Math.Min(cash, room));
+                if (amount < 1) continue;
+                _nextAutoStart = now + 30;
+                StartAutoLaundering(business, amount);
             }
         }
         catch (Exception e)
@@ -629,6 +706,7 @@ public sealed class Mod : MelonMod
             Laundering = new
             {
                 AutoLaunderFromInventory = _autoLaunder.Value,
+                EnableAutoLaunderTransactions = _allowAutoTransactions.Value,
                 LaunderingProgressAfter4AM = _launderingAfter4AM.Value
             },
             Simulation = new
@@ -720,6 +798,7 @@ public sealed class Mod : MelonMod
             _plantEnabled.Value = ReadBool("Plants", "PlantGrowthAtEndOfDay", _plantEnabled.Value);
             _protectWater.Value = ReadBool("Plants", "ProtectWaterDuringFrozenGrowth", _protectWater.Value);
             _autoLaunder.Value = ReadBool("Laundering", "AutoLaunderFromInventory", _autoLaunder.Value);
+            _allowAutoTransactions.Value = ReadBool("Laundering", "EnableAutoLaunderTransactions", _allowAutoTransactions.Value);
             _launderingAfter4AM.Value = ReadBool("Laundering", "LaunderingProgressAfter4AM", _launderingAfter4AM.Value);
             _diagnostics.Value = ReadBool("Advanced", "Diagnostics", _diagnostics.Value);
             // Keep valid user values unchanged. Ignore invalid negatives/zeros
