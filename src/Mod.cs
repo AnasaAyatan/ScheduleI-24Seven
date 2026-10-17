@@ -377,14 +377,30 @@ public sealed class Mod : MelonMod
             MelonLogger.Warning("Auto laundering transactions unavailable: required native methods missing.");
     }
 
+    private static object? ResolveMoneyManager()
+    {
+        // The singleton accessor is inherited by MoneyManager on this IL2CPP build.
+        Type? type = _cashBalanceProperty?.DeclaringType;
+        while (type != null)
+        {
+            var property = type.GetProperty("Instance", All | BindingFlags.DeclaredOnly);
+            if (property?.GetGetMethod(true)?.IsStatic == true)
+            {
+                object? instance = property.GetValue(null);
+                if (instance != null) return instance;
+            }
+            type = type.BaseType;
+        }
+        return null;
+    }
+
     private static void StartAutoLaundering(object business, float amount)
     {
         if (_autoStartHalted || _nativeLaunderStart == null || _nativeCashChange == null ||
             _cashBalanceProperty == null || amount < 1 || !float.IsFinite(amount)) return;
         try
         {
-            var managerType = _cashBalanceProperty.DeclaringType;
-            var manager = managerType?.GetProperty("Instance", All)?.GetValue(null);
+            var manager = ResolveMoneyManager();
             if (manager == null) return;
             float before = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
             if (!float.IsFinite(before) || before < amount) return;
@@ -504,8 +520,7 @@ public sealed class Mod : MelonMod
                     continue;
                 // One request per polling window. Stop all future requests on
                 // uncertain debit/network failure rather than risking repeats.
-                var managerType = _cashBalanceProperty?.DeclaringType;
-                var manager = managerType?.GetProperty("Instance", All)?.GetValue(null);
+                var manager = ResolveMoneyManager();
                 if (manager == null || _cashBalanceProperty == null)
                 {
                     if (_diagnostics.Value)
