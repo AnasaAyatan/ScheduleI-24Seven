@@ -673,10 +673,35 @@ public sealed class Mod : MelonMod
         }
     }
 
+    public static class NativeLaunderingRequestTrace
+    {
+        public static void Before(float __0, int __1)
+        {
+            if (_diagnostics.Value)
+                MelonLogger.Msg("TDD native laundering request observed: amount=" +
+                    __0.ToString("F2") + ", secondArgument=" + __1 +
+                    ", observationalOnly=true.");
+        }
+    }
+
     private static void InitializeManualLaunderingTrace()
     {
         var interfaceType = AccessTools.TypeByName("Il2CppScheduleOne.UI.LaunderingInterface");
         var confirm = interfaceType?.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null);
+        if (_nativeLaunderStart != null)
+        {
+            try
+            {
+                _harmony!.Patch(_nativeLaunderStart,
+                    prefix: new HarmonyMethod(typeof(NativeLaunderingRequestTrace),
+                        nameof(NativeLaunderingRequestTrace.Before)));
+                MelonLogger.Msg("TDD native laundering request argument trace installed.");
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Warning("TDD native laundering request argument trace unavailable: " + ex.Message);
+            }
+        }
         if (_diagnostics.Value && interfaceType != null)
         {
             foreach (var method in interfaceType.GetMethods(All | BindingFlags.DeclaredOnly)
