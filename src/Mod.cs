@@ -644,6 +644,7 @@ public sealed class Mod : MelonMod
         }
         double secondsPerMinute = _realSecondsPerGameMinute.Value;
         if (!double.IsFinite(secondsPerMinute) || secondsPerMinute <= 0) return;
+        if (!double.IsFinite(elapsed) || elapsed <= 0) return;
         _launderingCarry += Math.Min(elapsed, 5d);
         int minutes = (int)Math.Min(60d, Math.Floor(_launderingCarry / secondsPerMinute));
         if (minutes <= 0) return;
