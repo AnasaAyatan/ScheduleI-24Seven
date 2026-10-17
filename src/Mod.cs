@@ -445,6 +445,14 @@ public sealed class Mod : MelonMod
                 reason = "Native UI is missing required initialization, amount, confirmation, or business access.";
                 return false;
             }
+            object? currentBusiness = selectedBusiness.GetValue(ui);
+            object? currentAmount = selected.GetValue(ui);
+            if (_diagnostics.Value)
+                MelonLogger.Msg("TDD native UI state: selectedBusiness=" +
+                    (currentBusiness == null ? "null" : currentBusiness.GetType().FullName) +
+                    ", selectedAmount=" + (currentAmount?.ToString() ?? "null") +
+                    ", requestedBusinessType=" + business.GetType().FullName +
+                    ", noStateChanged=true.");
             reason = "Native laundering UI supports business initialization and confirmation; no transaction submitted.";
             return true;
         }
