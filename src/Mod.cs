@@ -551,6 +551,8 @@ public sealed class Mod : MelonMod
             if (_diagnostics.Value)
                 MelonLogger.Msg("TDD laundering allocation preview: cash=" + simulatedCash.ToString("F2") +
                     ", businesses=" + businesses.Length + ", transactionMode=dry-run, paidOperationsDisabled=true.");
+            float plannedTotal = 0;
+            int eligibleBusinessCount = 0;
             foreach (var business in businesses)
             {
                 bool authoritative = _businessIsServer?.GetValue(business) is true;
@@ -564,12 +566,16 @@ public sealed class Mod : MelonMod
                 if (_diagnostics.Value && float.IsFinite(simulatedCash) && authoritative && active == 0)
                 {
                     float selectedCap = _autoLaunderBusinessCap.Value;
-                    if (_diagnostics.Value)
-                        MelonLogger.Msg("TDD laundering cap setting: configured=" +
-                            selectedCap.ToString("F2") + ", expectedTestValue=5000.00.");
-                    float cap = float.IsFinite(selectedCap) && selectedCap > 0 ? selectedCap : room;
+                    if (!float.IsFinite(selectedCap) || selectedCap < 0)
+                    {
+                        MelonLogger.Warning("Laundering preview skipped: per-business cap is not a valid nonnegative amount.");
+                        continue;
+                    }
+                    float cap = selectedCap > 0 ? selectedCap : room;
                     float planned = (float)Math.Floor(Math.Max(0, Math.Min(simulatedCash, Math.Min(room, cap))));
                     simulatedCash -= planned;
+                    plannedTotal += planned;
+                    if (planned > 0) eligibleBusinessCount++;
                     MelonLogger.Msg("TDD laundering allocation preview: businessRoom=" + room.ToString("F2") +
                         ", plannedAmount=" + planned.ToString("F2") +
                         ", remainingCash=" + simulatedCash.ToString("F2") + ", submitted=false.");
@@ -605,6 +611,12 @@ public sealed class Mod : MelonMod
                 _nextAutoStart = now + 30;
                 StartAutoLaundering(business, amount);
             }
+            if (_diagnostics.Value)
+                MelonLogger.Msg("TDD laundering plan summary: eligibleBusinesses=" +
+                    eligibleBusinessCount + ", totalPlanned=" + plannedTotal.ToString("F2") +
+                    ", remainingCash=" + simulatedCash.ToString("F2") +
+                    ", perBusinessCap=" + _autoLaunderBusinessCap.Value.ToString("F2") +
+                    ", submitted=false.");
         }
         catch (Exception e)
         {
