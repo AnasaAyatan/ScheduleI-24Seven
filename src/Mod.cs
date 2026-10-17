@@ -570,7 +570,7 @@ public sealed class Mod : MelonMod
                     continue;
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
                 if (!float.IsFinite(room)) continue;
-                if (_diagnostics.Value && authoritative && active == 0)
+                if (authoritative && active == 0)
                 {
                     float selectedCap = _autoLaunderBusinessCap.Value;
                     if (!float.IsFinite(selectedCap) || selectedCap < 0)
@@ -583,9 +583,10 @@ public sealed class Mod : MelonMod
                     simulatedCash -= planned;
                     plannedTotal += planned;
                     if (planned > 0) eligibleBusinessCount++;
-                    MelonLogger.Msg("TDD laundering allocation preview: businessRoom=" + room.ToString("F2") +
-                        ", plannedAmount=" + planned.ToString("F2") +
-                        ", remainingCash=" + simulatedCash.ToString("F2") + ", submitted=false.");
+                    if (_diagnostics.Value)
+                        MelonLogger.Msg("TDD laundering allocation preview: businessRoom=" + room.ToString("F2") +
+                            ", plannedAmount=" + planned.ToString("F2") +
+                            ", remainingCash=" + simulatedCash.ToString("F2") + ", submitted=false.");
                 }
                 if (_diagnostics.Value && !_nativeInterfaceDiagnosticReported && authoritative)
                 {
