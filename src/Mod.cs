@@ -65,7 +65,6 @@ public sealed class Mod : MelonMod
     private static bool _launderingFailureReported;
     private static double _nextLaunderingTrace;
     private static double _nextAutomaticLaunderingCheck;
-    private static readonly Dictionary<object, double> _lastAutomaticRequest = new();
     private static bool _autoLaunderApiWarning;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
@@ -99,7 +98,7 @@ public sealed class Mod : MelonMod
         _launderingAfter4AM = prefs.CreateEntry("LaunderingProgressAfter4AM", true,
             "03 Laundering | Continue after 4 AM", "Existing laundering operations keep progressing.");
         _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
-            "03 Laundering | Auto-start (coming soon)", "Preview only. Does not spend cash or start laundering jobs yet.");
+            "03 Laundering | Check available capacity", "Read-only preparation for auto laundering. Does not spend cash or start jobs.");
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
             "04 Advanced | Seconds per game minute", "1 = regular test speed; 0.05 = very fast. Affects plants and laundering.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f,
