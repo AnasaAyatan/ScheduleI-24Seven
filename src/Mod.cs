@@ -573,6 +573,12 @@ public sealed class Mod : MelonMod
     {
         var interfaceType = AccessTools.TypeByName("Il2CppScheduleOne.UI.LaunderingInterface");
         var confirm = interfaceType?.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null);
+        if (_diagnostics.Value && interfaceType != null)
+        {
+            foreach (var method in interfaceType.GetMethods(All | BindingFlags.DeclaredOnly)
+                .Where(m => !m.IsSpecialName && (m.Name.Contains("Confirm") || m.Name.Contains("Launder") || m.Name.Contains("Amount") || m.Name.Contains("Start"))))
+                MelonLogger.Msg("Native laundering UI method: " + method);
+        }
         if (confirm == null)
         {
             MelonLogger.Warning("Manual laundering trace unavailable: ConfirmAmount() not found.");
@@ -645,7 +651,11 @@ public sealed class Mod : MelonMod
         public static void Before(ref int __state)
         {
             __state = CountLaunderingOperations();
-            if (_diagnostics.Value) MelonLogger.Msg("Manual laundering cash before confirmation=" + ReadCarriedCash());
+            if (_diagnostics.Value)
+            {
+                _manualTraceStartingCash = ReadCarriedCash();
+                MelonLogger.Msg("Manual laundering cash before confirmation=" + _manualTraceStartingCash);
+            }
             if (_diagnostics.Value)
                 MelonLogger.Msg("Manual laundering confirm: operations before=" + __state);
         }
@@ -658,7 +668,7 @@ public sealed class Mod : MelonMod
                     " (network synchronization may follow later).");
             if (_diagnostics.Value)
             {
-                _manualTraceStartingCash = ReadCarriedCash();
+                MelonLogger.Msg("Manual laundering cash immediately after=" + ReadCarriedCash() + ", startingCash=" + _manualTraceStartingCash);
                 _manualTraceSampleStage = 1;
                 _nextManualTraceSample = Watch.Elapsed.TotalSeconds + 2;
             }
