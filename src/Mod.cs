@@ -613,7 +613,10 @@ public sealed class Mod : MelonMod
                 }
                 float cash = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
                 if (!float.IsFinite(cash) || cash < 0) continue;
-                float amount = (float)Math.Floor(Math.Min(cash, room));
+                float configuredCap = _autoLaunderBusinessCap.Value;
+                if (!float.IsFinite(configuredCap) || configuredCap < 0) continue;
+                float effectiveRoom = configuredCap > 0 ? Math.Min(room, configuredCap) : room;
+                float amount = (float)Math.Floor(Math.Min(cash, effectiveRoom));
                 if (amount < 1) continue;
                 _nextAutoStart = now + 30;
                 StartAutoLaundering(business, amount);
