@@ -349,6 +349,55 @@ public sealed class Mod : MelonMod
         }
     }
 
+    private static void EvaluateAutomaticLaundering()
+    {
+        if (!_autoLaunder.Value || _ownedBusinesses == null || _businessOperations == null)
+            return;
+        double now = Watch.Elapsed.TotalSeconds;
+        if (now < _nextAutomaticLaunderingCheck) return;
+        _nextAutomaticLaunderingCheck = now + 10;
+        try
+        {
+            var businesses = EnumerateCommerceCollection(_ownedBusinesses.GetValue(null)).ToArray();
+            var capacity = _businessType?.GetProperty("LaunderCapacity", All);
+            var limit = _businessType?.GetProperty("appliedLaunderLimit", All);
+            var total = _businessType?.GetProperty("currentLaunderTotal", All);
+            if (capacity == null || limit == null || total == null)
+            {
+                if (!_autoLaunderApiWarning)
+                {
+                    _autoLaunderApiWarning = true;
+                    MelonLogger.Warning("Automatic laundering: business capacity API unavailable; no transactions started.");
+                }
+                return;
+            }
+            foreach (var business in businesses)
+            {
+                bool authoritative = _businessIsServer?.GetValue(business) is true;
+                int active = EnumerateCommerceCollection(_businessOperations.GetValue(business)).Count();
+                float businessCapacity = Convert.ToSingle(capacity.GetValue(business));
+                float allowed = Convert.ToSingle(limit.GetValue(business));
+                float used = Convert.ToSingle(total.GetValue(business));
+                if (!float.IsFinite(businessCapacity) || !float.IsFinite(allowed) || !float.IsFinite(used))
+                    continue;
+                float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
+                if (_diagnostics.Value)
+                    MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_autoLaunder.Value}.");
+                // This phase is deliberately read-only. We must first identify
+                // a native payment operation that cannot leave a failed job
+                // debited or a successful job unpaid.
+            }
+        }
+        catch (Exception e)
+        {
+            if (!_autoLaunderApiWarning)
+            {
+                _autoLaunderApiWarning = true;
+                MelonLogger.Warning("Automatic laundering eligibility unavailable: " + e.Message);
+            }
+        }
+    }
+
     private static void AdvanceLaundering(double elapsed, bool frozen)
     {
         if (!frozen || !_launderingAfter4AM.Value || _completeOperation == null)
@@ -734,6 +783,7 @@ public sealed class Mod : MelonMod
         _lastSeconds = current;
         bool frozen = EndOfDay();
         AdvanceLaundering(elapsed, frozen);
+        EvaluateAutomaticLaundering();
         if (_diagnostics.Value)
         {
             if (frozen != _previousFrozen || _plantEnabled.Value != _previousPlantEnabled || current >= _nextStatusLog)
