@@ -81,35 +81,32 @@ public sealed class Mod : MelonMod
 
     public override void OnInitializeMelon()
     {
-        // Retain old preference keys as hidden migration sources. Existing installations
-        // keep their values when moving to the new phone categories.
-        var legacy = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7 (Legacy)", true);
-        var old_EmployeesAtEndOfDay = legacy.CreateEntry("EmployeesAtEndOfDay", true, is_hidden: true);
-        var old_BotanistWateringAfter4AM = legacy.CreateEntry("BotanistWateringAfter4AM", true, is_hidden: true);
-        var old_PlantGrowthAtEndOfDay = legacy.CreateEntry("PlantGrowthAtEndOfDay", true, is_hidden: true);
-        var old_ProtectWaterDuringFrozenGrowth = legacy.CreateEntry("ProtectWaterDuringFrozenGrowth", true, is_hidden: true);
-        var old_LaunderingProgressAfter4AM = legacy.CreateEntry("LaunderingProgressAfter4AM", true, is_hidden: true);
-        var old_AutoLaunderFromInventory = legacy.CreateEntry("AutoLaunderFromInventory", true, is_hidden: true);
-        var old_RealSecondsPerGameMinute = legacy.CreateEntry("RealSecondsPerGameMinute", 1f, is_hidden: true);
-        var old_SecondsPerPlantMinute = legacy.CreateEntry("SecondsPerPlantMinute", 60f, is_hidden: true);
-        var old_AfterHoursGrowthMultiplier = legacy.CreateEntry("AfterHoursGrowthMultiplier", 1.05f, is_hidden: true);
-        var old_NormalizedGrowthPerMinute = legacy.CreateEntry("NormalizedGrowthPerMinute", 0.01f, is_hidden: true);
-        var old_Diagnostics = legacy.CreateEntry("Diagnostics", false, is_hidden: true);
-        var employees = MelonPreferences.CreateCategory("ScheduleI24Seven_01_Employees", "Schedule I 24/7 - Staff & Botanists");
-        var plants = MelonPreferences.CreateCategory("ScheduleI24Seven_02_Plants", "Schedule I 24/7 - Plant Care");
-        var laundering = MelonPreferences.CreateCategory("ScheduleI24Seven_03_Laundering", "Schedule I 24/7 - Money Laundering");
-        var advanced = MelonPreferences.CreateCategory("ScheduleI24Seven_04_Advanced", "Schedule I 24/7 - Advanced / Testing");
-        _employeeEnabled = employees.CreateEntry("EmployeesAtEndOfDay", old_EmployeesAtEndOfDay.Value, "Keep workers active after 4 AM", "Workers continue their usual tasks when the clock stops.");
-        _botanistWatering = employees.CreateEntry("BotanistWateringAfter4AM", old_BotanistWateringAfter4AM.Value, "Let botanists water after 4 AM", "Botanists keep watering assigned pots.");
-        _plantEnabled = plants.CreateEntry("PlantGrowthAtEndOfDay", old_PlantGrowthAtEndOfDay.Value, "Keep plants growing after 4 AM", "Plants keep growing when the clock stops.");
-        _protectWater = plants.CreateEntry("ProtectWaterDuringFrozenGrowth", old_ProtectWaterDuringFrozenGrowth.Value, "Prevent plants drying out after 4 AM", "Stops frozen-time moisture loss.");
-        _launderingAfter4AM = laundering.CreateEntry("LaunderingProgressAfter4AM", old_LaunderingProgressAfter4AM.Value, "Finish laundering after 4 AM", "Existing laundering jobs keep progressing after 4 AM.");
-        _autoLaunder = laundering.CreateEntry("AutoLaunderFromInventory", old_AutoLaunderFromInventory.Value, "Auto-launder cash (not available yet)", "Coming soon. Currently does not start or pay for jobs.");
-        _realSecondsPerGameMinute = advanced.CreateEntry("RealSecondsPerGameMinute", old_RealSecondsPerGameMinute.Value, "Advanced: Seconds per game minute", "1 = standard test speed; 0.05 = very fast testing. Changes plant and laundering progress.");
-        _secondsPerMinute = advanced.CreateEntry("SecondsPerPlantMinute", old_SecondsPerPlantMinute.Value, "Advanced: Plant refresh (seconds)", "How often the mod updates plant growth.");
-        _afterHoursBoost = advanced.CreateEntry("AfterHoursGrowthMultiplier", old_AfterHoursGrowthMultiplier.Value, "Advanced: Plant growth multiplier", "1 = normal; 2 = twice as fast.");
-        _growthPerMinute = advanced.CreateEntry("NormalizedGrowthPerMinute", old_NormalizedGrowthPerMinute.Value, "Advanced: Backup plant growth rate", "Only used if the normal plant growth calculation is unavailable.");
-        _diagnostics = advanced.CreateEntry("Diagnostics", old_Diagnostics.Value, "Write troubleshooting logs", "Enable only while investigating a problem.");
+        // Mod Manager & Phone App exposes the mod's original preference category.
+        // Keep a single discoverable category so settings do not become a blank
+        // legacy panel. Human-readable section prefixes group the controls.
+        var prefs = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7");
+        _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true,
+            "01 Staff | Keep workers active after 4 AM", "Workers continue regular tasks when the clock stops.");
+        _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", true,
+            "01 Staff | Keep botanists watering", "Botanists continue watering their assigned plants after 4 AM.");
+        _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", true,
+            "02 Plants | Keep plants growing", "Plants keep growing after 4 AM.");
+        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true,
+            "02 Plants | Prevent moisture loss", "Prevents pots drying out during frozen time.");
+        _launderingAfter4AM = prefs.CreateEntry("LaunderingProgressAfter4AM", true,
+            "03 Laundering | Continue after 4 AM", "Existing laundering operations keep progressing.");
+        _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
+            "03 Laundering | Auto-start (coming soon)", "Preview only. Does not spend cash or start laundering jobs yet.");
+        _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
+            "04 Advanced | Seconds per game minute", "1 = regular test speed; 0.05 = very fast. Affects plants and laundering.");
+        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f,
+            "04 Advanced | Plant update interval", "Seconds between plant growth updates.");
+        _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
+            "04 Advanced | Plant growth multiplier", "1 = normal; 2 = twice as fast.");
+        _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
+            "04 Advanced | Backup growth rate", "Only used when native plant calculations are unavailable.");
+        _diagnostics = prefs.CreateEntry("Diagnostics", false,
+            "04 Advanced | Troubleshooting logs", "Enable while investigating bugs, then turn off.");
 
         _jsonPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "UserData"), "ScheduleI24Seven.json");
         InitializeJson();
