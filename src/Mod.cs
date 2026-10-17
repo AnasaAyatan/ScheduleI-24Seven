@@ -95,10 +95,10 @@ public sealed class Mod : MelonMod
         var old_AfterHoursGrowthMultiplier = legacy.CreateEntry("AfterHoursGrowthMultiplier", 1.05f, is_hidden: true);
         var old_NormalizedGrowthPerMinute = legacy.CreateEntry("NormalizedGrowthPerMinute", 0.01f, is_hidden: true);
         var old_Diagnostics = legacy.CreateEntry("Diagnostics", false, is_hidden: true);
-        var employees = MelonPreferences.CreateCategory("ScheduleI24Seven_01_Employees", "01 - Staff & Botanists");
-        var plants = MelonPreferences.CreateCategory("ScheduleI24Seven_02_Plants", "02 - Plant Care");
-        var laundering = MelonPreferences.CreateCategory("ScheduleI24Seven_03_Laundering", "03 - Money Laundering");
-        var advanced = MelonPreferences.CreateCategory("ScheduleI24Seven_04_Advanced", "04 - Advanced / Testing");
+        var employees = MelonPreferences.CreateCategory("ScheduleI24Seven_01_Employees", "Schedule I 24/7 - Staff & Botanists");
+        var plants = MelonPreferences.CreateCategory("ScheduleI24Seven_02_Plants", "Schedule I 24/7 - Plant Care");
+        var laundering = MelonPreferences.CreateCategory("ScheduleI24Seven_03_Laundering", "Schedule I 24/7 - Money Laundering");
+        var advanced = MelonPreferences.CreateCategory("ScheduleI24Seven_04_Advanced", "Schedule I 24/7 - Advanced / Testing");
         _employeeEnabled = employees.CreateEntry("EmployeesAtEndOfDay", old_EmployeesAtEndOfDay.Value, "Keep workers active after 4 AM", "Workers continue their usual tasks when the clock stops.");
         _botanistWatering = employees.CreateEntry("BotanistWateringAfter4AM", old_BotanistWateringAfter4AM.Value, "Let botanists water after 4 AM", "Botanists keep watering assigned pots.");
         _plantEnabled = plants.CreateEntry("PlantGrowthAtEndOfDay", old_PlantGrowthAtEndOfDay.Value, "Keep plants growing after 4 AM", "Plants keep growing when the clock stops.");
