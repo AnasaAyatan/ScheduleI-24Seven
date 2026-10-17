@@ -75,6 +75,8 @@ public sealed class Mod : MelonMod
     private static object? _pendingAutoBusiness;
     private static double _pendingAutoSince;
     private static int _pendingOperationCount = -1;
+    private static float _pendingAmount;
+    private static bool _previousTransactionOptIn;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
@@ -399,6 +401,7 @@ public sealed class Mod : MelonMod
             try
             {
                 // The game handles creation and synchronization through its own server RPC.
+                _pendingAmount = amount;
                 _pendingOperationCount = EnumerateCommerceCollection(
                     _businessOperations!.GetValue(business)).Count();
                 _pendingAutoBusiness = business;
@@ -435,7 +438,8 @@ public sealed class Mod : MelonMod
                 bool confirmed = _pendingOperationCount >= 0 && observedCount > _pendingOperationCount;
                 if (confirmed)
                 {
-                    MelonLogger.Msg("Auto laundering: operation now visible in server state.");
+                    MelonLogger.Msg("Auto laundering: new operation observed after paid request for $" +
+                        _pendingAmount.ToString("F2") + ".");
                     _pendingAutoBusiness = null;
                     _pendingOperationCount = -1;
                 }
@@ -456,6 +460,14 @@ public sealed class Mod : MelonMod
                 MelonLogger.Error("Auto laundering halted: confirmation could not be checked. " + ex.Message);
             }
         }
+        // Require a deliberate OFF-to-ON transition after a failure. Even
+        // if a live setting is toggled later, never restart within this session.
+        if (!_allowAutoTransactions.Value)
+        {
+            _previousTransactionOptIn = false;
+            if (_pendingAutoBusiness == null) return;
+        }
+        else _previousTransactionOptIn = true;
         if (now < _nextAutomaticLaunderingCheck) return;
         _nextAutomaticLaunderingCheck = now + 10;
         try
@@ -494,7 +506,7 @@ public sealed class Mod : MelonMod
                 var manager = managerType?.GetProperty("Instance", All)?.GetValue(null);
                 if (manager == null || _cashBalanceProperty == null) continue;
                 float cash = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
-                if (!float.IsFinite(cash)) continue;
+                if (!float.IsFinite(cash) || cash < 0) continue;
                 float amount = (float)Math.Floor(Math.Min(cash, room));
                 if (amount < 1) continue;
                 _nextAutoStart = now + 30;
