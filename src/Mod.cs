@@ -409,6 +409,8 @@ public sealed class Mod : MelonMod
         return null;
     }
 
+    private static bool _nativeInterfaceDiagnosticReported;
+
     private static bool ValidateNativeLaunderingInterface(object business, out string reason)
     {
         reason = "Native laundering UI is not available.";
@@ -528,6 +530,14 @@ public sealed class Mod : MelonMod
                 if (!float.IsFinite(businessCapacity) || !float.IsFinite(allowed) || !float.IsFinite(used))
                     continue;
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
+                if (_diagnostics.Value && !_nativeInterfaceDiagnosticReported && authoritative)
+                {
+                    _nativeInterfaceDiagnosticReported = true;
+                    bool nativeReady = ValidateNativeLaunderingInterface(business, out string nativeReason);
+                    MelonLogger.Msg("TDD native laundering preflight: ready=" + nativeReady +
+                        ", reason=" + nativeReason + ", ownedBusiness=true, availableCapacity=" +
+                        room.ToString("F2") + ", paymentsDisabled=true.");
+                }
                 if (_diagnostics.Value)
                     MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_autoLaunder.Value}.");
                 if (_diagnostics.Value)
