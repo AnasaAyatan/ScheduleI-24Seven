@@ -112,8 +112,8 @@ public sealed class Mod : MelonMod
         _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
             "03 Laundering | Check available capacity", "Read-only preparation for auto laundering. Does not spend cash or start jobs.");
         _allowAutoTransactions = prefs.CreateEntry("EnableAutoLaunderTransactions", false,
-            "03 Laundering | Enable automatic transactions (EXPERIMENTAL)",
-            "Off by default. When enabled, spends carried cash and starts one laundering job per eligible owned business. Back up your save first.");
+            "03 Laundering | Automatic payments unavailable",
+            "Temporarily disabled: previous experiment deducted cash without creating a laundering operation.");
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
             "04 Advanced | Seconds per game minute", "1 = regular test speed; 0.05 = very fast. Affects plants and laundering.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f,
@@ -396,47 +396,13 @@ public sealed class Mod : MelonMod
 
     private static void StartAutoLaundering(object business, float amount)
     {
-        if (_autoStartHalted || _nativeLaunderStart == null || _nativeCashChange == null ||
-            _cashBalanceProperty == null || amount < 1 || !float.IsFinite(amount)) return;
-        try
-        {
-            var manager = ResolveMoneyManager();
-            if (manager == null) return;
-            float before = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
-            if (!float.IsFinite(before) || before < amount) return;
-            int baseline = EnumerateCommerceCollection(_businessOperations!.GetValue(business)).Count();
-            // Debit through MoneyManager, not directly through CashInstance.
-            // Parameters match the native ChangeCashBalance(float,bool,bool) wrapper.
-            _nativeCashChange.Invoke(manager, new object[] { -amount, true, true });
-            float after = Convert.ToSingle(_cashBalanceProperty.GetValue(manager));
-            if (!float.IsFinite(after) || Math.Abs((before - after) - amount) > 0.02f)
-            {
-                _autoStartHalted = true;
-                MelonLogger.Error("Auto laundering halted: native cash debit could not be verified. No job started.");
-                return;
-            }
-            try
-            {
-                // The game handles creation and synchronization through its own server RPC.
-                _pendingAmount = amount;
-                _pendingOperationCount = baseline;
-                _pendingAutoBusiness = business;
-                _pendingAutoSince = Watch.Elapsed.TotalSeconds;
-                _nativeLaunderStart.Invoke(business, new object[] { amount, 1440 });
-                MelonLogger.Msg("Auto laundering requested a paid operation of $" + amount.ToString("F2") + ".");
-            }
-            catch (Exception e)
-            {
-                // A remote invocation can fail after sending its request. Never
-                // blindly refund money: that could duplicate funds.
-                _autoStartHalted = true;
-                MelonLogger.Error("Auto laundering halted after debit: operation result uncertain; inspect save before retrying. " + e.Message);
-            }
-        }
-        catch (Exception e)
+        // Fail closed until the game's authoritative transaction sequence is
+        // established. A previous test debited cash without creating a job.
+        // Never issue an independent cash debit and an unverified network RPC.
+        if (!_autoStartHalted)
         {
             _autoStartHalted = true;
-            MelonLogger.Error("Auto laundering halted due to transaction failure: " + e.Message);
+            MelonLogger.Error("Auto laundering paid requests disabled: an earlier build deducted cash without confirmed operation creation. Manual laundering remains available.");
         }
     }
 
