@@ -394,8 +394,22 @@ public sealed class Mod : MelonMod
         return null;
     }
 
+    private static object? _observedLaunderingInterface;
+
+    public static class NativeLaunderingInstanceTrace
+    {
+        public static void Before(object __instance)
+        {
+            if (__instance == null) return;
+            _observedLaunderingInterface = __instance;
+            if (_diagnostics.Value)
+                MelonLogger.Msg("TDD native laundering interface captured from game initialization.");
+        }
+    }
+
     private static object? ResolveLaunderingInterface()
     {
+        if (_observedLaunderingInterface != null) return _observedLaunderingInterface;
         var t = AccessTools.TypeByName("Il2CppScheduleOne.UI.LaunderingInterface");
         for (var cursor = t; cursor != null; cursor = cursor.BaseType)
         {
@@ -639,6 +653,22 @@ public sealed class Mod : MelonMod
             foreach (var method in interfaceType.GetMethods(All | BindingFlags.DeclaredOnly)
                 .Where(m => !m.IsSpecialName && (m.Name.Contains("Confirm") || m.Name.Contains("Launder") || m.Name.Contains("Amount") || m.Name.Contains("Start"))))
                 MelonLogger.Msg("Native laundering UI method: " + method);
+        }
+        var initialize = interfaceType?.GetMethods(All).FirstOrDefault(m =>
+            m.Name == "Initialize" && m.GetParameters().Length == 1);
+        if (initialize != null)
+        {
+            try
+            {
+                _harmony!.Patch(initialize,
+                    prefix: new HarmonyMethod(typeof(NativeLaunderingInstanceTrace),
+                        nameof(NativeLaunderingInstanceTrace.Before)));
+                MelonLogger.Msg("TDD native laundering instance capture installed.");
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Warning("TDD native laundering instance capture unavailable: " + ex.Message);
+            }
         }
         if (confirm == null)
         {
