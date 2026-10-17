@@ -74,6 +74,7 @@ public sealed class Mod : MelonMod
     private static bool _autoStartHalted;
     private static object? _pendingAutoBusiness;
     private static double _pendingAutoSince;
+    private static int _pendingOperationCount = -1;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
@@ -398,6 +399,8 @@ public sealed class Mod : MelonMod
             try
             {
                 // The game handles creation and synchronization through its own server RPC.
+                _pendingOperationCount = EnumerateCommerceCollection(
+                    _businessOperations!.GetValue(business)).Count();
                 _pendingAutoBusiness = business;
                 _pendingAutoSince = Watch.Elapsed.TotalSeconds;
                 _nativeLaunderStart.Invoke(business, new object[] { amount, 1440 });
@@ -427,17 +430,20 @@ public sealed class Mod : MelonMod
         {
             try
             {
-                bool confirmed = _businessOperations != null &&
-                    EnumerateCommerceCollection(_businessOperations.GetValue(_pendingAutoBusiness)).Any();
+                int observedCount = _businessOperations == null ? -1 :
+                    EnumerateCommerceCollection(_businessOperations.GetValue(_pendingAutoBusiness)).Count();
+                bool confirmed = _pendingOperationCount >= 0 && observedCount > _pendingOperationCount;
                 if (confirmed)
                 {
                     MelonLogger.Msg("Auto laundering: operation now visible in server state.");
                     _pendingAutoBusiness = null;
+                    _pendingOperationCount = -1;
                 }
                 else if (now - _pendingAutoSince > 20)
                 {
                     _autoStartHalted = true;
                     _pendingAutoBusiness = null;
+                    _pendingOperationCount = -1;
                     MelonLogger.Error("Auto laundering halted: request not confirmed within 20 seconds.");
                 }
                 else return;
@@ -446,6 +452,7 @@ public sealed class Mod : MelonMod
             {
                 _autoStartHalted = true;
                 _pendingAutoBusiness = null;
+                _pendingOperationCount = -1;
                 MelonLogger.Error("Auto laundering halted: confirmation could not be checked. " + ex.Message);
             }
         }
