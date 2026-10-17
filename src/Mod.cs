@@ -394,6 +394,21 @@ public sealed class Mod : MelonMod
         return null;
     }
 
+    private static object? ResolveLaunderingInterface()
+    {
+        var t = AccessTools.TypeByName("Il2CppScheduleOne.UI.LaunderingInterface");
+        for (var cursor = t; cursor != null; cursor = cursor.BaseType)
+        {
+            var singleton = cursor.GetProperty("Instance", All | BindingFlags.DeclaredOnly);
+            if (singleton?.GetGetMethod(true)?.IsStatic == true)
+            {
+                var instance = singleton.GetValue(null);
+                if (instance != null) return instance;
+            }
+        }
+        return null;
+    }
+
     private static void StartAutoLaundering(object business, float amount)
     {
         // Fail closed until the game's authoritative transaction sequence is
