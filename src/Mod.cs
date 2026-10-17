@@ -449,6 +449,12 @@ public sealed class Mod : MelonMod
             _autoStartHalted = true;
             MelonLogger.Error("Auto laundering paid requests disabled: an earlier build deducted cash without confirmed operation creation. Manual laundering remains available.");
         }
+        if (_diagnostics.Value)
+        {
+            bool ready = ValidateNativeLaunderingInterface(business, out string reason);
+            MelonLogger.Msg("Auto laundering native interface check: ready=" + ready +
+                ", requestedAmount=" + amount.ToString("F2") + ", details=" + reason);
+        }
     }
 
     private static void EvaluateAutomaticLaundering()
