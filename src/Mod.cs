@@ -614,6 +614,28 @@ public sealed class Mod : MelonMod
         }
     }
 
+    private static void TraceNativeLaunderingSelection(object ui)
+    {
+        if (!_diagnostics.Value || ui == null) return;
+        try
+        {
+            var t = ui.GetType();
+            foreach (string key in new[] { "Business", "selectedAmountToLaunder", "MinLaunderAmount", "maxLaunderAmount" })
+            {
+                var property = t.GetProperty(key, All);
+                object? value = property?.GetValue(ui);
+                if (property == null)
+                    MelonLogger.Msg("Native laundering selection " + key + ": unavailable");
+                else
+                    MelonLogger.Msg("Native laundering selection " + key + "=" + (value?.ToString() ?? "null"));
+            }
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Warning("Native laundering selection trace unavailable: " + ex.Message);
+        }
+    }
+
     private static float ReadCarriedCash()
     {
         try
@@ -648,8 +670,9 @@ public sealed class Mod : MelonMod
 
     public static class ManualLaunderingTrace
     {
-        public static void Before(ref int __state)
+        public static void Before(object __instance, ref int __state)
         {
+            TraceNativeLaunderingSelection(__instance);
             __state = CountLaunderingOperations();
             if (_diagnostics.Value)
             {
