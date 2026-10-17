@@ -563,6 +563,9 @@ public sealed class Mod : MelonMod
                 if (_diagnostics.Value && float.IsFinite(simulatedCash) && authoritative && active == 0)
                 {
                     float selectedCap = _autoLaunderBusinessCap.Value;
+                    if (_diagnostics.Value)
+                        MelonLogger.Msg("TDD laundering cap setting: configured=" +
+                            selectedCap.ToString("F2") + ", expectedTestValue=5000.00.");
                     float cap = float.IsFinite(selectedCap) && selectedCap > 0 ? selectedCap : room;
                     float planned = (float)Math.Floor(Math.Max(0, Math.Min(simulatedCash, Math.Min(room, cap))));
                     simulatedCash -= planned;
