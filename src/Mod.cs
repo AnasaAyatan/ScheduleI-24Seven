@@ -542,6 +542,10 @@ public sealed class Mod : MelonMod
                 }
                 return;
             }
+            float simulatedCash = ReadCarriedCash();
+            if (_diagnostics.Value)
+                MelonLogger.Msg("TDD laundering allocation preview: cash=" + simulatedCash.ToString("F2") +
+                    ", businesses=" + businesses.Length + ", transactionMode=dry-run, paidOperationsDisabled=true.");
             foreach (var business in businesses)
             {
                 bool authoritative = _businessIsServer?.GetValue(business) is true;
@@ -552,6 +556,14 @@ public sealed class Mod : MelonMod
                 if (!float.IsFinite(businessCapacity) || !float.IsFinite(allowed) || !float.IsFinite(used))
                     continue;
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
+                if (_diagnostics.Value && float.IsFinite(simulatedCash) && authoritative && active == 0)
+                {
+                    float planned = (float)Math.Floor(Math.Max(0, Math.Min(simulatedCash, room)));
+                    simulatedCash -= planned;
+                    MelonLogger.Msg("TDD laundering allocation preview: businessRoom=" + room.ToString("F2") +
+                        ", plannedAmount=" + planned.ToString("F2") +
+                        ", remainingCash=" + simulatedCash.ToString("F2") + ", submitted=false.");
+                }
                 if (_diagnostics.Value && !_nativeInterfaceDiagnosticReported && authoritative)
                 {
                     _nativeInterfaceDiagnosticReported = true;
