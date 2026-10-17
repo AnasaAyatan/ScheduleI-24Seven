@@ -63,6 +63,7 @@ public sealed class Mod : MelonMod
     private static MethodInfo? _completeOperation;
     private static double _launderingCarry;
     private static bool _launderingFailureReported;
+    private static double _nextLaunderingTrace;
 
     private static MelonPreferences_Entry<bool> _employeeEnabled = null!;
     private static MelonPreferences_Entry<bool> _plantEnabled = null!;
@@ -346,22 +347,39 @@ public sealed class Mod : MelonMod
         int minutes = (int)Math.Min(60d, Math.Floor(_launderingCarry / secondsPerMinute));
         if (minutes <= 0) return;
         _launderingCarry -= minutes * secondsPerMinute;
+        bool trace = _diagnostics.Value && Watch.Elapsed.TotalSeconds >= _nextLaunderingTrace;
+        if (trace) _nextLaunderingTrace = Watch.Elapsed.TotalSeconds + 15;
         try
         {
+            int inspected = 0, authoritative = 0, active = 0;
             foreach (var business in EnumerateCommerceCollection(_ownedBusinesses!.GetValue(null)))
             {
-                if (_businessIsServer!.GetValue(business) is not true) continue;
+                inspected++;
+                bool server = _businessIsServer!.GetValue(business) is true;
+                if (server) authoritative++;
                 var operations = EnumerateCommerceCollection(_businessOperations!.GetValue(business)).ToArray();
+                if (trace)
+                    MelonLogger.Msg($"Laundering trace: business={business.GetType().Name}, server={server}, operations={operations.Length}, tickMinutes={minutes}.");
+                if (!server) continue;
+                active += operations.Length;
                 foreach (var operation in operations)
                 {
                     int current = Convert.ToInt32(_operationMinutes!.GetValue(operation));
                     int total = Convert.ToInt32(_operationCompletion!.GetValue(operation));
+                    if (trace)
+                        MelonLogger.Msg($"Laundering trace: minutesSinceStarted={current}, completionTime_Minutes={total}.");
                     if (total <= 0 || current < 0) continue;
                     int next = (int)Math.Min(total, (long)current + minutes);
                     if (next != current) _operationMinutes.SetValue(operation, next);
-                    if (next >= total) _completeOperation.Invoke(business, new[] { operation });
+                    if (next >= total)
+                    {
+                        if (_diagnostics.Value) MelonLogger.Msg("Laundering trace: invoking native completion.");
+                        _completeOperation.Invoke(business, new[] { operation });
+                    }
                 }
             }
+            if (trace)
+                MelonLogger.Msg($"Laundering trace summary: owned={inspected}, authoritative={authoritative}, activeOnServer={active}, speedSecondsPerGameMinute={secondsPerMinute}.");
         }
         catch (Exception ex)
         {
