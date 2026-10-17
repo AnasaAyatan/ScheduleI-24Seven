@@ -491,6 +491,32 @@ public sealed class Mod : MelonMod
             reason = "Business already has a laundering operation.";
             return false;
         }
+        var capacityProperty = _businessType?.GetProperty("LaunderCapacity", All);
+        var limitProperty = _businessType?.GetProperty("appliedLaunderLimit", All);
+        var totalProperty = _businessType?.GetProperty("currentLaunderTotal", All);
+        if (capacityProperty == null || limitProperty == null || totalProperty == null)
+        {
+            reason = "Business capacity properties unavailable.";
+            return false;
+        }
+        float capacity = Convert.ToSingle(capacityProperty.GetValue(business));
+        float allowed = Convert.ToSingle(limitProperty.GetValue(business));
+        float used = Convert.ToSingle(totalProperty.GetValue(business));
+        float configuredCap = _autoLaunderBusinessCap.Value;
+        if (!float.IsFinite(capacity) || !float.IsFinite(allowed) ||
+            !float.IsFinite(used) || !float.IsFinite(configuredCap) ||
+            configuredCap < 0)
+        {
+            reason = "Business capacity or configured cap is invalid.";
+            return false;
+        }
+        float remaining = Math.Max(0, Math.Min(capacity, allowed - used));
+        if (configuredCap > 0) remaining = Math.Min(remaining, configuredCap);
+        if (amount > remaining)
+        {
+            reason = "Requested amount exceeds current business capacity or configured cap.";
+            return false;
+        }
         float cash = ReadCarriedCash();
         if (!float.IsFinite(cash) || cash < amount)
         {
