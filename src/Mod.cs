@@ -467,22 +467,52 @@ public sealed class Mod : MelonMod
         }
     }
 
+    private static bool PrepareNativeLaunderingRequest(object business, float amount, out string reason)
+    {
+        reason = "Native laundering request is not eligible.";
+        if (!float.IsFinite(amount) || amount < 1f)
+        {
+            reason = "Requested amount is invalid.";
+            return false;
+        }
+        if (_pendingAutoBusiness != null || _autoStartHalted)
+        {
+            reason = "Existing request pending or session halted.";
+            return false;
+        }
+        if (_businessIsServer?.GetValue(business) is not true)
+        {
+            reason = "Business is not authoritative.";
+            return false;
+        }
+        if (_businessOperations == null ||
+            EnumerateCommerceCollection(_businessOperations.GetValue(business)).Any())
+        {
+            reason = "Business already has a laundering operation.";
+            return false;
+        }
+        float cash = ReadCarriedCash();
+        if (!float.IsFinite(cash) || cash < amount)
+        {
+            reason = "Insufficient or invalid cash balance.";
+            return false;
+        }
+        if (!ValidateNativeLaunderingInterface(business, out reason))
+            return false;
+        reason = "Request passed native UI and game-state preflight; transaction not submitted.";
+        return true;
+    }
+
     private static void StartAutoLaundering(object business, float amount)
     {
-        // Fail closed until the game's authoritative transaction sequence is
-        // established. A previous test debited cash without creating a job.
-        // Never issue an independent cash debit and an unverified network RPC.
-        if (!_autoStartHalted)
-        {
-            _autoStartHalted = true;
-            MelonLogger.Error("Auto laundering paid requests disabled: an earlier build deducted cash without confirmed operation creation. Manual laundering remains available.");
-        }
+        bool eligible = PrepareNativeLaunderingRequest(business, amount, out string reason);
         if (_diagnostics.Value)
-        {
-            bool ready = ValidateNativeLaunderingInterface(business, out string reason);
-            MelonLogger.Msg("Auto laundering native interface check: ready=" + ready +
-                ", requestedAmount=" + amount.ToString("F2") + ", details=" + reason);
-        }
+            MelonLogger.Msg("Auto laundering native request staging: eligible=" + eligible +
+                ", amount=" + amount.ToString("F2") + ", reason=" + reason +
+                ", submitted=false.");
+        // This path deliberately never changes cash, UI state or game operations.
+        // Payment submission must be implemented through the native confirmation
+        // workflow and must verify authoritative operation creation before retrying.
     }
 
     private static void EvaluateAutomaticLaundering()
