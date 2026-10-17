@@ -608,11 +608,44 @@ public sealed class Mod : MelonMod
         }
     }
 
+    private static float ReadCarriedCash()
+    {
+        try
+        {
+            var manager = ResolveMoneyManager();
+            var balance = manager == null ? null : _cashBalanceProperty?.GetValue(manager);
+            return balance == null ? float.NaN : Convert.ToSingle(balance);
+        }
+        catch (Exception e)
+        {
+            if (_diagnostics.Value) MelonLogger.Warning("Read-only cash trace unavailable: " + e.Message);
+            return float.NaN;
+        }
+    }
+
+    private static double _nextManualTraceSample = -1;
+    private static int _manualTraceSampleStage;
+    private static float _manualTraceStartingCash;
+
+    private static void SampleManualTransaction()
+    {
+        if (_manualTraceSampleStage == 0 || Watch.Elapsed.TotalSeconds < _nextManualTraceSample) return;
+        if (!_diagnostics.Value) { _manualTraceSampleStage = 0; return; }
+        int stage = _manualTraceSampleStage;
+        MelonLogger.Msg("Manual laundering observation +" + (stage == 1 ? 2 : 10) +
+            "s: carriedCash=" + ReadCarriedCash() +
+            ", originalCash=" + _manualTraceStartingCash +
+            ", operationCount=" + CountLaunderingOperations());
+        _manualTraceSampleStage = stage == 1 ? 2 : 0;
+        _nextManualTraceSample = Watch.Elapsed.TotalSeconds + 8;
+    }
+
     public static class ManualLaunderingTrace
     {
         public static void Before(ref int __state)
         {
             __state = CountLaunderingOperations();
+            if (_diagnostics.Value) MelonLogger.Msg("Manual laundering cash before confirmation=" + ReadCarriedCash());
             if (_diagnostics.Value)
                 MelonLogger.Msg("Manual laundering confirm: operations before=" + __state);
         }
@@ -623,6 +656,12 @@ public sealed class Mod : MelonMod
                 MelonLogger.Msg("Manual laundering confirm: operations immediately after=" +
                     CountLaunderingOperations() + ", before=" + __state +
                     " (network synchronization may follow later).");
+            if (_diagnostics.Value)
+            {
+                _manualTraceStartingCash = ReadCarriedCash();
+                _manualTraceSampleStage = 1;
+                _nextManualTraceSample = Watch.Elapsed.TotalSeconds + 2;
+            }
         }
     }
 
@@ -898,6 +937,7 @@ public sealed class Mod : MelonMod
         _lastSeconds = current;
         bool frozen = EndOfDay();
         AdvanceLaundering(elapsed, frozen);
+        SampleManualTransaction();
         EvaluateAutomaticLaundering();
         if (_diagnostics.Value)
         {
