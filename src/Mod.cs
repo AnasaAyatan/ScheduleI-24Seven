@@ -548,6 +548,12 @@ public sealed class Mod : MelonMod
                 return;
             }
             float simulatedCash = ReadCarriedCash();
+            if (!float.IsFinite(simulatedCash) || simulatedCash < 0)
+            {
+                if (_diagnostics.Value)
+                    MelonLogger.Warning("Laundering planner unavailable: cash balance is invalid.");
+                return;
+            }
             if (_diagnostics.Value)
                 MelonLogger.Msg("TDD laundering allocation preview: cash=" + simulatedCash.ToString("F2") +
                     ", businesses=" + businesses.Length + ", transactionMode=dry-run, paidOperationsDisabled=true.");
@@ -563,7 +569,8 @@ public sealed class Mod : MelonMod
                 if (!float.IsFinite(businessCapacity) || !float.IsFinite(allowed) || !float.IsFinite(used))
                     continue;
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
-                if (_diagnostics.Value && float.IsFinite(simulatedCash) && authoritative && active == 0)
+                if (!float.IsFinite(room)) continue;
+                if (_diagnostics.Value && authoritative && active == 0)
                 {
                     float selectedCap = _autoLaunderBusinessCap.Value;
                     if (!float.IsFinite(selectedCap) || selectedCap < 0)
