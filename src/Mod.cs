@@ -409,6 +409,36 @@ public sealed class Mod : MelonMod
         return null;
     }
 
+    private static bool ValidateNativeLaunderingInterface(object business, out string reason)
+    {
+        reason = "Native laundering UI is not available.";
+        try
+        {
+            var ui = ResolveLaunderingInterface();
+            if (ui == null) return false;
+            var uiType = ui.GetType();
+            var init = uiType.GetMethods(All).FirstOrDefault(m =>
+                m.Name == "Initialize" && m.GetParameters().Length == 1 &&
+                m.GetParameters()[0].ParameterType.IsAssignableFrom(business.GetType()));
+            var confirm = uiType.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null);
+            var selected = uiType.GetProperty("selectedAmountToLaunder", All);
+            var selectedBusiness = uiType.GetProperty("Business", All);
+            if (init == null || confirm == null || selected?.CanWrite != true ||
+                selectedBusiness?.CanRead != true)
+            {
+                reason = "Native UI is missing required initialization, amount, confirmation, or business access.";
+                return false;
+            }
+            reason = "Native laundering UI supports business initialization and confirmation; no transaction submitted.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            reason = "Native UI validation failed: " + ex.Message;
+            return false;
+        }
+    }
+
     private static void StartAutoLaundering(object business, float amount)
     {
         // Fail closed until the game's authoritative transaction sequence is
