@@ -83,18 +83,18 @@ public sealed class Mod : MelonMod
     {
         // Retain old preference keys as hidden migration sources. Existing installations
         // keep their values when moving to the new phone categories.
-        var legacy = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7 (Legacy)");
-        var old_EmployeesAtEndOfDay = legacy.CreateEntry("EmployeesAtEndOfDay", true, IsHidden: true);
-        var old_BotanistWateringAfter4AM = legacy.CreateEntry("BotanistWateringAfter4AM", true, IsHidden: true);
-        var old_PlantGrowthAtEndOfDay = legacy.CreateEntry("PlantGrowthAtEndOfDay", true, IsHidden: true);
-        var old_ProtectWaterDuringFrozenGrowth = legacy.CreateEntry("ProtectWaterDuringFrozenGrowth", true, IsHidden: true);
-        var old_LaunderingProgressAfter4AM = legacy.CreateEntry("LaunderingProgressAfter4AM", true, IsHidden: true);
-        var old_AutoLaunderFromInventory = legacy.CreateEntry("AutoLaunderFromInventory", true, IsHidden: true);
-        var old_RealSecondsPerGameMinute = legacy.CreateEntry("RealSecondsPerGameMinute", 1f, IsHidden: true);
-        var old_SecondsPerPlantMinute = legacy.CreateEntry("SecondsPerPlantMinute", 60f, IsHidden: true);
-        var old_AfterHoursGrowthMultiplier = legacy.CreateEntry("AfterHoursGrowthMultiplier", 1.05f, IsHidden: true);
-        var old_NormalizedGrowthPerMinute = legacy.CreateEntry("NormalizedGrowthPerMinute", 0.01f, IsHidden: true);
-        var old_Diagnostics = legacy.CreateEntry("Diagnostics", false, IsHidden: true);
+        var legacy = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7 (Legacy)", true);
+        var old_EmployeesAtEndOfDay = legacy.CreateEntry("EmployeesAtEndOfDay", true, is_hidden: true);
+        var old_BotanistWateringAfter4AM = legacy.CreateEntry("BotanistWateringAfter4AM", true, is_hidden: true);
+        var old_PlantGrowthAtEndOfDay = legacy.CreateEntry("PlantGrowthAtEndOfDay", true, is_hidden: true);
+        var old_ProtectWaterDuringFrozenGrowth = legacy.CreateEntry("ProtectWaterDuringFrozenGrowth", true, is_hidden: true);
+        var old_LaunderingProgressAfter4AM = legacy.CreateEntry("LaunderingProgressAfter4AM", true, is_hidden: true);
+        var old_AutoLaunderFromInventory = legacy.CreateEntry("AutoLaunderFromInventory", true, is_hidden: true);
+        var old_RealSecondsPerGameMinute = legacy.CreateEntry("RealSecondsPerGameMinute", 1f, is_hidden: true);
+        var old_SecondsPerPlantMinute = legacy.CreateEntry("SecondsPerPlantMinute", 60f, is_hidden: true);
+        var old_AfterHoursGrowthMultiplier = legacy.CreateEntry("AfterHoursGrowthMultiplier", 1.05f, is_hidden: true);
+        var old_NormalizedGrowthPerMinute = legacy.CreateEntry("NormalizedGrowthPerMinute", 0.01f, is_hidden: true);
+        var old_Diagnostics = legacy.CreateEntry("Diagnostics", false, is_hidden: true);
         var employees = MelonPreferences.CreateCategory("ScheduleI24Seven_01_Employees", "01 - Staff & Botanists");
         var plants = MelonPreferences.CreateCategory("ScheduleI24Seven_02_Plants", "02 - Plant Care");
         var laundering = MelonPreferences.CreateCategory("ScheduleI24Seven_03_Laundering", "03 - Money Laundering");
