@@ -474,10 +474,29 @@ public sealed class Mod : MelonMod
         }
     }
 
+    private static float MinimumAutomaticJobAmount()
+    {
+        // A $100 native operation was verified in-game. Fail conservatively
+        // when the game does not expose its minimum through the interface.
+        const float verifiedFallback = 100f;
+        try
+        {
+            var ui = ResolveLaunderingInterface();
+            if (ui == null) return verifiedFallback;
+            var t = ui.GetType();
+            var minimum = t.GetProperty("MinLaunderAmount", All);
+            if (minimum == null) return verifiedFallback;
+            object? raw = minimum.GetValue(minimum.GetMethod?.IsStatic == true ? null : ui);
+            float value = Convert.ToSingle(raw);
+            return float.IsFinite(value) && value > 0 ? Math.Max(value, verifiedFallback) : verifiedFallback;
+        }
+        catch { return verifiedFallback; }
+    }
+
     private static bool PrepareNativeLaunderingRequest(object business, float amount, out string reason)
     {
         reason = "Native laundering request is not eligible.";
-        if (!float.IsFinite(amount) || amount < 1f)
+        if (!float.IsFinite(amount) || amount < MinimumAutomaticJobAmount())
         {
             reason = "Requested amount is invalid.";
             return false;
@@ -759,7 +778,7 @@ public sealed class Mod : MelonMod
                 if (!float.IsFinite(configuredCap) || configuredCap < 0) continue;
                 float effectiveRoom = configuredCap > 0 ? Math.Min(room, configuredCap) : room;
                 float amount = (float)Math.Floor(Math.Min(cash, effectiveRoom));
-                if (amount < 1) continue;
+                if (amount < MinimumAutomaticJobAmount()) continue;
                 // The 10-second polling interval already throttles requests.
                 // Pending operation verification prevents overlapping submissions.
                 _nextAutoStart = now + 10;
