@@ -8,7 +8,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.5.1", "AnasaAyatan")]
+[assembly: MelonInfo(typeof(ScheduleI24Seven.Mod), "Schedule I 24/7", "0.6.0", "AnasaAyatan")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace ScheduleI24Seven;
