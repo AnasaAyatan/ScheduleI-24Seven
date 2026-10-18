@@ -5,6 +5,10 @@ $ErrorActionPreference = 'Stop'
 $source = Get-Content -LiteralPath $SourceFile -Raw
 
 $required = [ordered]@{
+    'Version 0.6.0' = '"0.6.0", "AnasaAyatan"'
+    'Automatic jobs off by default' = 'CreateEntry("EnableAutoLaunderTransactions", false,'
+    'Job cap defaults to available capacity' = 'CreateEntry("AutoLaunderBusinessCap", 0f,'
+    'Per-job cap phone label' = '"Max per automatic job ($)"'
     'Native UI confirmation' = 'confirm.Invoke(ui, null);'
     'Preserve manual terminal selection' = 'object? previousBusiness = businessProperty.GetValue(ui);'
     'Restore manual terminal selection' = 'initialize.Invoke(ui, new object[] { previousBusiness });'
