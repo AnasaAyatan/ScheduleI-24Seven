@@ -89,7 +89,6 @@ public sealed class Mod : MelonMod
     private static MelonPreferences_Entry<bool> _launderingAfter4AM = null!;
     // Configuration for the upcoming inventory-backed auto-launder engine.
     // Deliberately no transaction writes until inventory debit is independently verified.
-    private static MelonPreferences_Entry<bool> _autoLaunder = null!;
     private static MelonPreferences_Entry<float> _autoLaunderBusinessCap = null!;
     private static MelonPreferences_Entry<float> _minimumCashReserve = null!;
     private static MelonPreferences_Entry<bool> _allowAutoTransactions = null!;
@@ -126,8 +125,6 @@ public sealed class Mod : MelonMod
 
         _launderingAfter4AM = laundering.CreateEntry("LaunderingProgressAfter4AM", true,
             "Continue operations after 4 AM", "Existing operations keep progressing.");
-        _autoLaunder = laundering.CreateEntry("AutoLaunderFromInventory", true,
-            "Check available capacity", "Check owned businesses for available capacity.");
         _autoLaunderBusinessCap = laundering.CreateEntry("AutoLaunderBusinessCap", 0f,
             "Maximum amount per business (0 = full)", "Limit each automatic job; 0 uses all available capacity.");
         _minimumCashReserve = laundering.CreateEntry("MinimumCashReserve", 0f,
@@ -685,7 +682,7 @@ public sealed class Mod : MelonMod
             // This lets development tests use the safe default OFF position.
         }
         else _previousTransactionOptIn = true;
-        if (!_autoLaunder.Value || _ownedBusinesses == null || _businessOperations == null) return;
+        if (_ownedBusinesses == null || _businessOperations == null) return;
         if (now < _nextAutomaticLaunderingCheck) return;
         _nextAutomaticLaunderingCheck = now + 10;
         try
@@ -775,7 +772,7 @@ public sealed class Mod : MelonMod
                         room.ToString("F2") + ", paymentsDisabled=true.");
                 }
                 if (_diagnostics.Value)
-                    MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_autoLaunder.Value}.");
+                    MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_allowAutoTransactions.Value}.");
                 if (_diagnostics.Value)
                     MelonLogger.Msg($"Auto laundering gates: transactionsConfigured={_allowAutoTransactions.Value}, transactionsEffective={_allowAutoTransactions.Value && !_autoStartHalted}, halted={_autoStartHalted}, pending={_pendingAutoBusiness != null}, authoritative={authoritative}, active={active}, room={room:F2}, cooldownRemaining={Math.Max(0,_nextAutoStart-now):F1}.");
                 if (!loadWindowPassed || !_allowAutoTransactions.Value || _autoStartHalted || _pendingAutoBusiness != null ||
@@ -1170,7 +1167,6 @@ public sealed class Mod : MelonMod
             },
             Laundering = new
             {
-                AutoLaunderFromInventory = _autoLaunder.Value,
                 EnableAutoLaunderTransactions = _allowAutoTransactions.Value,
                 AutoLaunderBusinessCap = _autoLaunderBusinessCap.Value,
                 MinimumCashReserve = _minimumCashReserve.Value,
@@ -1267,7 +1263,6 @@ public sealed class Mod : MelonMod
             _botanistWatering.Value = ReadBool("Workers", "BotanistWateringAfter4AM", _botanistWatering.Value);
             _plantEnabled.Value = ReadBool("Plants", "PlantGrowthAtEndOfDay", _plantEnabled.Value);
             _protectWater.Value = ReadBool("Plants", "ProtectWaterDuringFrozenGrowth", _protectWater.Value);
-            _autoLaunder.Value = ReadBool("Laundering", "AutoLaunderFromInventory", _autoLaunder.Value);
             _allowAutoTransactions.Value = ReadBool("Laundering", "EnableAutoLaunderTransactions", _allowAutoTransactions.Value);
             _launderingAfter4AM.Value = ReadBool("Laundering", "LaunderingProgressAfter4AM", _launderingAfter4AM.Value);
             _diagnostics.Value = ReadBool("Advanced", "Diagnostics", _diagnostics.Value);
