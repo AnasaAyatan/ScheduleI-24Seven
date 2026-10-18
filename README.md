@@ -6,7 +6,7 @@ Schedule I normally pauses parts of the simulation at the end of the day. Schedu
 
 **Development version:** 0.5.1 (unreleased; latest published version is 0.5.0)  
 **Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
-**Status:** v0.5.1 is pending a local build and in-game verification. The [published v0.5.0 release](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0) remains available.
+**Status:** v0.5.1 builds locally and its native automatic laundering requests passed an initial four-operation game test; extended unattended and multiplayer behavior are still under test. The [published v0.5.0 release](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0) remains available.
 
 ## Features
 
@@ -42,7 +42,7 @@ The mod uses IL2CPP interfaces from the tested game version. Game updates may re
 ```powershell
 git clone https://github.com/AnasaAyatan/ScheduleI-24Seven.git
 cd ScheduleI-24Seven
-git switch development/frozen-growth-watering
+git switch feature/auto-laundering
 dotnet build -c Release
 ```
 
@@ -67,6 +67,21 @@ If you have **Mod Manager & Phone App**, open **Phone → Mod Manager → Schedu
 **Fresh-install defaults in v0.5.1:** Employee work, plant growth, botanist watering and water protection are all enabled. Existing users retain their saved preferences, including any disabled settings. Start with a growth multiplier of `1` and increase it to your preference.
 
 The refresh interval controls how often updates occur; it isn't intended as a growth multiplier. The growth-speed multiplier and seconds-per-simulated-minute setting control the simulation speed.
+
+## Experimental in-game automatic laundering (v0.5.1 feature branch)
+
+Schedule I 24/7 can use owned businesses to schedule in-game laundering jobs from available carried cash. This is a gameplay feature involving fictional game currency.
+
+- Enable **Check available capacity** and **Experimental automatic jobs** in the phone mod settings. The payment option is off by default; back up your save before enabling it.
+- **Maximum per business (0 = full capacity)** limits the size of each scheduled job. For example, `5000` sets a $5,000 in-game per-business ceiling; `0` uses the game's current available business capacity.
+- An initial request is capped at $100 per game session until its new operation and cash change are verified; subsequent requests use the selected capacity limit.
+- The scheduler selects at most one business per pass, rotates across owned businesses, and waits for a request to be verified before another can begin.
+- New jobs are considered when existing operations finish and capacity becomes available. Existing operations can also continue progressing during the game's 4 AM freeze when **Continue after 4 AM** is enabled.
+- Switching automatic jobs off prevents future submissions; a previously submitted request can still finish and be checked. If confirmation is uncertain, automated requests halt for the remainder of the session.
+
+**Test coverage:** One local test confirmed four consecutive automatic game requests ($100, $2,000, $5,000, $5,000) for a total of $12,100. Subsequent scheduling updates, continuous unattended operation, multiplayer behavior, and restart behavior after extended 4 AM operation still need validation.
+
+**Troubleshooting:** If a request stops, disable the experimental option and inspect `MelonLoader/Latest.log` for `Auto laundering`, `Game auto request`, and `halted`. Do not repeatedly re-enable transactions on a valuable save after an unconfirmed request.
 
 ## Optional JSON configuration
 
