@@ -48,6 +48,10 @@ dotnet build -c Release
 
 After a successful build, the DLL is in `bin\Release\net6.0\ScheduleI24Seven.dll`. Close the game before replacing the installed DLL.
 
+## Minimum cash reserve
+
+Under **Laundering**, set **Minimum cash to keep** to the amount of carried game cash you want to retain. The default is **0** for compatibility. Automatic jobs spend only the whole-dollar cash above this reserve, up to available business capacity and the configured business cap. For example, $10,000 cash with a $2,000 reserve allows up to $8,000 across eligible businesses. When cash is at or below the reserve, automatic submissions wait; existing jobs continue. Manual transactions are not restricted by this setting.
+
 ## In-game settings layout (v0.5.1 development)
 
 The Phone Mod Manager preferences are organized into distinct sections: **Workers**, **Plants**, **Laundering**, and **Advanced**. This matches the separate sections in the editable JSON file while keeping short, readable phone labels. The first three sections contain the corresponding gameplay features; Advanced contains shared timing and diagnostics.
