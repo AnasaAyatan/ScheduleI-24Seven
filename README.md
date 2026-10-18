@@ -182,7 +182,7 @@ When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. Th
 - [Changelog](CHANGELOG.md) — changes by version.
 - [Release notes](RELEASE_NOTES.md) — features, compatibility and installation details.
 
-**v0.5.1 is in development and has not been published.** The latest downloadable release is [v0.5.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
+**v0.6.0 is a release candidate and has not been published.** The latest downloadable release is [v0.5.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
 
 ## License
 
