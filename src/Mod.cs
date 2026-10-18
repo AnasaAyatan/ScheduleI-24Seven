@@ -565,6 +565,10 @@ public sealed class Mod : MelonMod
             if (!float.IsFinite(liveCash) || liveCash < requestAmount ||
                 Math.Abs(liveCash - _cashBeforeAutoRequest) > 0.05f)
                 throw new InvalidOperationException("Game cash changed during UI preparation.");
+            var selectedBusiness = uiType.GetProperty("Business", All);
+            var actualBusiness = selectedBusiness?.GetValue(ui);
+            if (actualBusiness == null || !actualBusiness.Equals(business))
+                throw new InvalidOperationException("Game UI business selection did not match the requested business.");
             confirm.Invoke(ui, null);
             MelonLogger.Msg("Game auto request submitted using native confirmation: " +
                 requestAmount.ToString("F2"));
