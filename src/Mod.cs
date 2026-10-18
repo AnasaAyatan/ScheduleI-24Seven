@@ -749,7 +749,9 @@ public sealed class Mod : MelonMod
                 float effectiveRoom = configuredCap > 0 ? Math.Min(room, configuredCap) : room;
                 float amount = (float)Math.Floor(Math.Min(cash, effectiveRoom));
                 if (amount < 1) continue;
-                _nextAutoStart = now + 30;
+                // The 10-second polling interval already throttles requests.
+                // Pending operation verification prevents overlapping submissions.
+                _nextAutoStart = now + 10;
                 StartAutoLaundering(business, amount);
                 _nextBusinessIndex = (businessIndex + 1) % businesses.Length;
                 // Rotate the next scan so no owned business is permanently prioritized.
