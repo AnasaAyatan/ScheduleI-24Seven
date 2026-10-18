@@ -23,6 +23,10 @@ $required = [ordered]@{
     'Whole-dollar transaction floor' = 'Math.Floor(Math.Min(Math.Max(0f, cash - reserve), effectiveRoom))'
     'One dollar fallback' = 'const float verifiedFallback = 1f;'
     'Normal time default' = 'advanced.CreateEntry("RealSecondsPerGameMinute", 1f,'
+    'Technical plant interval in Advanced' = 'advanced.CreateEntry("SecondsPerPlantMinute", 60f,'
+    'Technical plant multiplier in Advanced' = 'advanced.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,'
+    'Technical fallback rate in Advanced' = 'advanced.CreateEntry("NormalizedGrowthPerMinute", 0.01f,'
+    'Cash reserve label' = '"Cash to keep ($)"'
     'Ten-second pacing' = '_nextAutoStart = now + 10;'
     'After-hours operation advancement' = 'AdvanceLaundering(elapsed, frozen);'
 }
