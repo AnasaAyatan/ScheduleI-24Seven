@@ -126,7 +126,7 @@ public sealed class Mod : MelonMod
         _launderingAfter4AM = laundering.CreateEntry("LaunderingProgressAfter4AM", true,
             "Finish jobs after 4 AM", "Existing laundering jobs keep progressing after 4 AM.");
         _autoLaunderBusinessCap = laundering.CreateEntry("AutoLaunderBusinessCap", 0f,
-            "Maximum per business (0 = full)", "Maximum dollars per automatic job; 0 uses all eligible capacity.");
+            "Max per automatic job ($)", "Limit each new job, not total spending across businesses. 0 = full available capacity.");
         _minimumCashReserve = laundering.CreateEntry("MinimumCashReserve", 0f,
             "Cash to keep ($)", "Automatic jobs only spend cash above this amount; 0 = no reserve.");
         _allowAutoTransactions = laundering.CreateEntry("EnableAutoLaunderTransactions", false,
