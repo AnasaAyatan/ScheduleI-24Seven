@@ -4,12 +4,35 @@ All notable user-facing changes to Schedule I 24/7 are documented here.
 
 This repository uses a development branch for unreleased work. Versions and dates below describe the tested or candidate builds, not a published stable release.
 
-## [0.5.0] — stable release candidate (unpublished)
+## [0.6.0] — release candidate (unpublished)
+
+### Added
+- Optional automatic native laundering jobs across owned businesses, with available-capacity checks, round-robin scheduling and per-job dollar limits.
+- Cash reserve setting that prevents automatic jobs from spending protected carried cash.
+- Native operation-count and cash-debit verification; uncertain submissions halt further automatic jobs for the current session.
+- Preservation of the selected business in the native laundering terminal after an automatic job, supporting manual transactions.
+- Grouped phone Mod Manager settings for Workers, Plants, Laundering, and Advanced, with shorter labels and clearer numerical descriptions.
+
+### Default settings for fresh installations
+- **Auto-start laundering: OFF**
+- **After-hours time speed: 1.0 (normal)**
+- **Max per automatic job: 0 (full available capacity)**
+- **Cash to keep: $0**
+
+Existing saved configuration values are retained rather than overwritten.
+
+### Verified / pending
+- User reports successful gameplay tests for multi-business auto jobs, manual laundering, reserve, save/reload capacity protection, and manual/automatic coexistence.
+- Source-level static checks cover the safety gates and these defaults.
+- Final clean Release build and packaged artifact verification are pending before publication.
+- Multiplayer and extended unattended operation are not independently validated.
+
+## [0.5.0] — published stable release
 
 - Prepared the first stable release candidate based on the user-tested v0.4.11-alpha build.
 - Set the mod's displayed version to v0.5.0, without changing gameplay logic.
 - Prepared installation guidance, release notes and a verification checklist.
-- Publication date and binary download remain pending. No merge or tag has been created.
+- Published on GitHub as v0.5.0; release ZIP available through GitHub Releases.
 
 ## [0.4.11-alpha] — release candidate (tested in game)
 
@@ -57,4 +80,4 @@ This repository uses a development branch for unreleased work. Versions and date
 - The water-protection hook suppresses the whole pot minute update after 4 AM; other pot-minute behaviors may also pause.
 - `Employee.CanWork()` may bypass non-time restrictions during the 4 AM freeze.
 - Multiplayer scenarios and newer game versions need separate testing.
-- The mod does not change wages or automatically fill pots.
+- The mod does not automatically fill pots.

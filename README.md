@@ -2,11 +2,11 @@
 
 Keep employees working and plants growing after **4 AM** in [Schedule I](https://store.steampowered.com/app/3164500/Schedule_I/).
 
-Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps employees working and lets plants continue growing after 4 AM. Botanists can keep watering their assigned pots through normal in-game behavior. The mod does **not** instantly refill pots or modify payroll.
+Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps employees working and lets plants continue growing after 4 AM. Botanists can keep watering their assigned pots through normal in-game behavior. The mod does **not** instantly refill pots.
 
-**Version:** 0.5.0 (stable release)  
+**Release candidate:** 0.6.0 (unreleased; latest published version is 0.5.0)  
 **Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
-**Status:** Published and tested in-game. [Download v0.5.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
+**Status:** v0.6.0 feature-branch candidate. User-reported tests passed for auto jobs, manual transactions, reserve, save/reload and UI. A clean final release build is pending. The [published v0.5.0 release](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0) remains available.
 
 ## Features
 
@@ -15,8 +15,9 @@ Schedule I normally pauses parts of the simulation at the end of the day. Schedu
 - **After-hours plant growth:** Continue plant-specific growth after 4 AM, taking native growth factors into account when available.
 - **Water protection:** Prevent the normal frozen-time pot minute update from draining moisture, without generating water.
 - **Adjustable growth speed:** Set any **positive, finite** growth multiplier (for example, `1` for 1×, `3` for 3×, `10` for 10×). No artificial multiplier or per-update simulated-minute cap.
+- **Optional automatic laundering:** Start native jobs within business capacity and cash reserve; OFF by default.
+- **Manual laundering compatibility:** Automatic jobs restore the previous terminal selection.
 - **In-game settings:** Edit settings through the compatible phone Mod Manager.
-- **No payroll changes:** The mod leaves wage calculations to the game.
 
 > **Growth multiplier warning:** Very high values (such as 10× or more) can make plants mature almost instantly and skip visible growth stages. There is no artificial multiplier cap, but total plant progress remains within 0–100%. Start low and increase gradually.
 
@@ -43,31 +44,51 @@ The mod uses IL2CPP interfaces from the tested game version. Game updates may re
 ```powershell
 git clone https://github.com/AnasaAyatan/ScheduleI-24Seven.git
 cd ScheduleI-24Seven
-git switch main
+git switch feature/auto-laundering
 dotnet build -c Release
 ```
 
 After a successful build, the DLL is in `bin\Release\net6.0\ScheduleI24Seven.dll`. Close the game before replacing the installed DLL.
 
+## Automatic laundering defaults and cash reserve
+
+| Phone setting | Fresh-install default | Behaviour |
+| --- | --- | --- |
+| Auto-start laundering | **OFF** | Never automatically spend cash until enabled |
+| After-hours time speed | **1.0** | Normal speed |
+| Max per automatic job ($) | **0** | Full available business capacity |
+| Cash to keep ($) | **0** | No reserve; choose a positive amount to protect carried cash |
+
+**Max per automatic job** limits each job, not the total spent across owned businesses. For example, $10,000 carried cash and a $2,000 reserve leave at most $8,000 for automatic transactions. Manual laundering is not governed by this reserve. Existing saved preferences are retained.
+
+## In-game settings layout (v0.6.0)
+
+The Phone Mod Manager preferences are organized into distinct sections: **Workers**, **Plants**, **Laundering**, and **Advanced**. This matches the separate sections in the editable JSON file while keeping short, readable phone labels. The first three sections contain the corresponding gameplay features; Advanced contains shared timing and diagnostics.
+
+The new preference categories have new internal identifiers. On first launch, the mod loads existing settings from `UserData/ScheduleI24Seven.json`, including legacy `Employees` and flat JSON keys. Back up both the JSON file and `UserData/MelonPreferences.cfg` before updating. If the phone manager shows obsolete entries from the old category, those entries come from the saved legacy preferences and should not be edited; verify migration before cleaning them.
+
 ## Configure in game
 
-If you have **Mod Manager & Phone App**, open **Phone → Mod Manager → Schedule I 24/7**. Adjust the switches and number fields, then select **SAVE**. Changes are mirrored to the JSON settings file automatically.
+With **Mod Manager & Phone App**, open **Phone → Mod Manager → Schedule I 24/7**, adjust settings and select **SAVE**. Phone settings sync to `UserData/ScheduleI24Seven.json`.
 
-| Phone setting | What it does |
+| Section | Controls |
 | --- | --- |
-| Employees work after 4 AM | Allow employees to continue working during the freeze |
-| Allow plants to grow after 4 AM | Continue plant growth after 4 AM |
-| Botanists water after 4 AM | Let idle botanists take normal watering tasks |
-| Prevent water loss after 4 AM | Suppress frozen-time pot minute updates to protect moisture |
-| Plant growth speed multiplier | Multiply simulated plant growth (`1` = 1×, `3` = 3×) |
-| Growth refresh interval (seconds) | How often growth is updated during the freeze |
-| Seconds per simulated game minute | Conversion between real time and simulated plant-growth time; lower is faster |
-| Fallback growth per refresh | Backup progress increment if game-native growth calculation is unavailable |
-| Enable debug logging | Add detailed diagnostic information to MelonLoader logs |
+| Workers | Keep workers active after 4 AM; Keep botanists watering |
+| Plants | Keep plants growing after 4 AM; Protect plant moisture |
+| Laundering | Finish jobs after 4 AM; Auto-start laundering; Max per automatic job ($); Cash to keep ($) |
+| Advanced | After-hours time speed; Plant update interval; After-hours growth multiplier; Fallback plant growth rate; Troubleshooting logs |
 
-**Suggested setup:** Enable employee work, plant growth, botanist watering and water protection. Start with a growth multiplier of `1` and increase it to your preference.
+The growth multiplier defaults to 1.05; 1 is standard and 2 is double. The plant update interval defaults to 60 seconds. After-hours time speed defaults to 1.0 (normal); smaller positive values accelerate the simulation. Saved user settings may differ.
 
-The refresh interval controls how often updates occur; it isn't intended as a growth multiplier. The growth-speed multiplier and seconds-per-simulated-minute setting control the simulation speed.
+## Automatic laundering (v0.6.0 release candidate)
+
+Automatic laundering is **OFF by default**. Once enabled, the scheduler checks owned business capacity, existing jobs, carried cash and reserved cash. It rotates between businesses, starts at most one job per scheduling pass and waits for native confirmation (cash debit plus a new operation) before proceeding. The per-job cap does not set a global laundering budget.
+
+Automatic job creation uses the game's laundering interface and restores its previous business selection after a successful submission, preserving manual terminal use. Uncertain transactions halt further automatic submissions for the session. In-progress jobs continue after the game's 4 AM freeze if **Finish jobs after 4 AM** is enabled.
+
+**Verification:** The user reports passing multi-business auto-job, manual compatibility, cash reserve, save/reload, and concurrent manual/auto tests. Final build and static regression tests still need to run before release. Multiplayer and extended unattended operation have not been independently verified.
+
+**Troubleshooting:** Search `MelonLoader/Latest.log` for `Auto laundering`, `Game auto request`, and `halted`. If a request halts, disable auto-start and inspect the log instead of retrying on a valuable save.
 
 ## Optional JSON configuration
 
@@ -92,6 +113,38 @@ For advanced editing, open that file in a text editor. For example:
   "AfterHoursGrowthMultiplier": 3
 }
 ```
+
+The JSON file is organized into `Workers`, `Plants`, `Laundering`, `Simulation`, and `Advanced` objects. For example:
+
+```json
+{
+  "Workers": {
+    "EmployeesAtEndOfDay": true,
+    "BotanistWateringAfter4AM": true
+  },
+  "Plants": {
+    "PlantGrowthAtEndOfDay": true,
+    "ProtectWaterDuringFrozenGrowth": true,
+    "SecondsPerPlantMinute": 30,
+    "NormalizedGrowthPerMinute": 0.01,
+    "AfterHoursGrowthMultiplier": 3
+  },
+  "Laundering": {
+    "EnableAutoLaunderTransactions": false,
+    "AutoLaunderBusinessCap": 0,
+    "MinimumCashReserve": 0,
+    "LaunderingProgressAfter4AM": true
+  },
+  "Simulation": {
+    "RealSecondsPerGameMinute": 1
+  },
+  "Advanced": {
+    "Diagnostics": false
+  }
+}
+```
+
+Older files with an `Employees` section or flat setting names are still accepted. New JSON exports use `Workers`. Make a backup before manually editing; the phone Mod Manager can also update these settings.
 
 These are **example preferences**, not necessarily the defaults in a fresh installation. Existing settings are preserved when upgrading. JSON changes are checked approximately every two seconds; the phone settings are stored in `UserData\MelonPreferences.cfg` and mirrored to JSON.
 
@@ -123,14 +176,13 @@ When water protection is enabled, the mod skips `Pot.OnMinPass()` after 4 AM. Th
 - The end-of-day employee work patch alters `Employee.CanWork()` during the freeze; this may bypass some non-time work checks.
 - The water-protection hook suppresses the whole pot minute update during the freeze, not only moisture drain.
 - Multiplayer host/server behavior should be tested separately.
-- Payroll methods and wage amounts are not modified by this mod.
 
 ## Releases and history
 
 - [Changelog](CHANGELOG.md) — changes by version.
 - [Release notes](RELEASE_NOTES.md) — features, compatibility and installation details.
 
-**v0.5.0 is published.** Get the official ZIP from [GitHub Releases](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
+**v0.6.0 is a release candidate and has not been published.** The latest downloadable release is [v0.5.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
 
 ## License
 
