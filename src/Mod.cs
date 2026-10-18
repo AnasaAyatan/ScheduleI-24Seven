@@ -562,7 +562,8 @@ public sealed class Mod : MelonMod
             if (!float.IsFinite(actualSelected) || Math.Abs(actualSelected - requestAmount) > 0.05f)
                 throw new InvalidOperationException("Game UI did not accept the requested amount.");
             float liveCash = ReadCarriedCash();
-            if (!float.IsFinite(liveCash) || liveCash < requestAmount)
+            if (!float.IsFinite(liveCash) || liveCash < requestAmount ||
+                Math.Abs(liveCash - _cashBeforeAutoRequest) > 0.05f)
                 throw new InvalidOperationException("Game cash changed during UI preparation.");
             confirm.Invoke(ui, null);
             MelonLogger.Msg("Game auto request submitted using native confirmation: " +
