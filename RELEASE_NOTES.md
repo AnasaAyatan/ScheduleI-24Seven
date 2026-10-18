@@ -13,7 +13,7 @@ All four main after-hours options are now **enabled by default on fresh installa
 
 Existing installations retain their saved settings. Upgrading will **not** automatically re-enable an option that a player previously disabled.
 
-The growth multiplier, native growth algorithm, task logic, and JSON configuration format are unchanged. Diagnostics stay off by default for fresh installs.
+New in v0.5.1: automatic in-game laundering at owned businesses, with native transaction verification, round-robin scheduling, per-business cap (0 = available capacity), and continued jobs after 4 AM. Automatic transaction submission is OFF by default; existing user settings are preserved. The old $100 first-transaction pilot cap has been removed.\n\nConfiguration is organized under Workers, Plants, Laundering, Simulation, and Advanced in the JSON file. Legacy flat JSON and Employees category values remain readable. Phone Mod Manager categories have been reorganized, so back up `UserData/ScheduleI24Seven.json` and `UserData/MelonPreferences.cfg` before upgrading. Diagnostics stay off by default on fresh installs.
 
 ## Install and update
 
@@ -39,6 +39,9 @@ Existing settings are retained from `UserData/MelonPreferences.cfg` and `UserDat
 - [ ] Verify the four defaults on a fresh settings profile, without replacing a user's actual settings.
 - [ ] Verify existing settings persist across upgrade.
 - [ ] Test work, watering, growth and moisture protection after 4 AM.
+- [ ] Confirm first automatic laundering request uses actual configured business limit, not $100.
+- [ ] Verify automatic operation completes and another starts after 4 AM.
+- [ ] Verify categorized phone settings and legacy JSON migration with existing settings.
 - [ ] Package and checksum the DLL ZIP.
 - [ ] Obtain approval before merging, tagging or publishing to GitHub and Nexus Mods.
 
