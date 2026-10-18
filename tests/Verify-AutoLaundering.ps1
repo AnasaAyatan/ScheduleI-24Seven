@@ -22,6 +22,7 @@ $required = [ordered]@{
     'Startup grace period' = 'now - _ownedBusinessesFirstObservedAt >= 60'
     'Whole-dollar transaction floor' = 'Math.Floor(Math.Min(Math.Max(0f, cash - reserve), effectiveRoom))'
     'One dollar fallback' = 'const float verifiedFallback = 1f;'
+    'Normal time default' = 'advanced.CreateEntry("RealSecondsPerGameMinute", 1f,'
     'Ten-second pacing' = '_nextAutoStart = now + 10;'
     'After-hours operation advancement' = 'AdvanceLaundering(elapsed, frozen);'
 }
