@@ -535,7 +535,18 @@ public sealed class Mod : MelonMod
 
     private static void StartAutoLaundering(object business, float amount)
     {
-        bool eligible = PrepareNativeLaunderingRequest(business, amount, out string reason);
+        bool eligible;
+        string reason;
+        try
+        {
+            eligible = PrepareNativeLaunderingRequest(business, amount, out reason);
+        }
+        catch (Exception ex)
+        {
+            _autoStartHalted = true;
+            MelonLogger.Error("Automatic job preflight failed; submissions halted: " + ex.Message);
+            return;
+        }
         if (_diagnostics.Value)
             MelonLogger.Msg("Auto laundering native request staging: eligible=" + eligible +
                 ", amount=" + amount.ToString("F2") + ", reason=" + reason +
