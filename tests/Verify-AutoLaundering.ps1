@@ -15,6 +15,10 @@ $required = [ordered]@{
     'Fair scheduler rotation' = '_nextBusinessIndex = (businessIndex + 1)'
     'Pending request guard' = '_pendingAutoBusiness != null ||'
     'Minimum amount filter' = 'amount < MinimumAutomaticJobAmount()'
+    'Business list load stabilization' = 'businesses.Length != _lastObservedOwnedBusinessCount'
+    'Startup grace period' = 'now - _ownedBusinessesFirstObservedAt >= 60'
+    'Whole-dollar transaction floor' = 'Math.Floor(Math.Min(cash, effectiveRoom))'
+    'One dollar fallback' = 'const float verifiedFallback = 1f;'
     'Ten-second pacing' = '_nextAutoStart = now + 10;'
     'After-hours operation advancement' = 'AdvanceLaundering(elapsed, frozen);'
 }
