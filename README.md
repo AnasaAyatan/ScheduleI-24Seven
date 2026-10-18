@@ -4,9 +4,9 @@ Keep employees working and plants growing after **4 AM** in [Schedule I](https:/
 
 Schedule I normally pauses parts of the simulation at the end of the day. Schedule I 24/7 keeps employees working and lets plants continue growing after 4 AM. Botanists can keep watering their assigned pots through normal in-game behavior. The mod does **not** instantly refill pots.
 
-**Development version:** 0.5.1 (unreleased; latest published version is 0.5.0)  
+**Release candidate:** 0.6.0 (unreleased; latest published version is 0.5.0)  
 **Tested with:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, Mod Manager & Phone App 2.2.4  
-**Status:** v0.5.1 builds locally and its native automatic laundering requests passed an initial four-operation game test; extended unattended and multiplayer behavior are still under test. The [published v0.5.0 release](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0) remains available.
+**Status:** v0.6.0 feature-branch candidate. User-reported tests passed for auto jobs, manual transactions, reserve, save/reload and UI. A clean final release build is pending. The [published v0.5.0 release](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0) remains available.
 
 ## Features
 
@@ -15,6 +15,8 @@ Schedule I normally pauses parts of the simulation at the end of the day. Schedu
 - **After-hours plant growth:** Continue plant-specific growth after 4 AM, taking native growth factors into account when available.
 - **Water protection:** Prevent the normal frozen-time pot minute update from draining moisture, without generating water.
 - **Adjustable growth speed:** Set any **positive, finite** growth multiplier (for example, `1` for 1×, `3` for 3×, `10` for 10×). No artificial multiplier or per-update simulated-minute cap.
+- **Optional automatic laundering:** Start native jobs within business capacity and cash reserve; OFF by default.
+- **Manual laundering compatibility:** Automatic jobs restore the previous terminal selection.
 - **In-game settings:** Edit settings through the compatible phone Mod Manager.
 
 > **Growth multiplier warning:** Very high values (such as 10× or more) can make plants mature almost instantly and skip visible growth stages. There is no artificial multiplier cap, but total plant progress remains within 0–100%. Start low and increase gradually.
@@ -48,11 +50,18 @@ dotnet build -c Release
 
 After a successful build, the DLL is in `bin\Release\net6.0\ScheduleI24Seven.dll`. Close the game before replacing the installed DLL.
 
-## Minimum cash reserve
+## Automatic laundering defaults and cash reserve
 
-Under **Laundering**, set **Minimum cash to keep** to the amount of carried game cash you want to retain. The default is **0** for compatibility. Automatic jobs spend only the whole-dollar cash above this reserve, up to available business capacity and the configured business cap. For example, $10,000 cash with a $2,000 reserve allows up to $8,000 across eligible businesses. When cash is at or below the reserve, automatic submissions wait; existing jobs continue. Manual transactions are not restricted by this setting.
+| Phone setting | Fresh-install default | Behaviour |
+| --- | --- | --- |
+| Auto-start laundering | **OFF** | Never automatically spend cash until enabled |
+| After-hours time speed | **1.0** | Normal speed |
+| Max per automatic job ($) | **0** | Full available business capacity |
+| Cash to keep ($) | **0** | No reserve; choose a positive amount to protect carried cash |
 
-## In-game settings layout (v0.5.1 development)
+**Max per automatic job** limits each job, not the total spent across owned businesses. For example, $10,000 carried cash and a $2,000 reserve leave at most $8,000 for automatic transactions. Manual laundering is not governed by this reserve. Existing saved preferences are retained.
+
+## In-game settings layout (v0.6.0)
 
 The Phone Mod Manager preferences are organized into distinct sections: **Workers**, **Plants**, **Laundering**, and **Advanced**. This matches the separate sections in the editable JSON file while keeping short, readable phone labels. The first three sections contain the corresponding gameplay features; Advanced contains shared timing and diagnostics.
 
@@ -60,38 +69,26 @@ The new preference categories have new internal identifiers. On first launch, th
 
 ## Configure in game
 
-If you have **Mod Manager & Phone App**, open **Phone → Mod Manager → Schedule I 24/7**. Adjust the switches and number fields, then select **SAVE**. Changes are mirrored to the JSON settings file automatically.
+With **Mod Manager & Phone App**, open **Phone → Mod Manager → Schedule I 24/7**, adjust settings and select **SAVE**. Phone settings sync to `UserData/ScheduleI24Seven.json`.
 
-| Phone setting | What it does |
+| Section | Controls |
 | --- | --- |
-| Employees work after 4 AM | Allow employees to continue working during the freeze |
-| Allow plants to grow after 4 AM | Continue plant growth after 4 AM |
-| Botanists water after 4 AM | Let idle botanists take normal watering tasks |
-| Prevent water loss after 4 AM | Suppress frozen-time pot minute updates to protect moisture |
-| Plant growth speed multiplier | Multiply simulated plant growth (`1` = 1×, `3` = 3×) |
-| Growth refresh interval (seconds) | How often growth is updated during the freeze |
-| Seconds per simulated game minute | Conversion between real time and simulated plant-growth time; lower is faster |
-| Fallback growth per refresh | Backup progress increment if game-native growth calculation is unavailable |
-| Enable debug logging | Add detailed diagnostic information to MelonLoader logs |
+| Workers | Keep workers active after 4 AM; Keep botanists watering |
+| Plants | Keep plants growing after 4 AM; Protect plant moisture |
+| Laundering | Finish jobs after 4 AM; Auto-start laundering; Max per automatic job ($); Cash to keep ($) |
+| Advanced | After-hours time speed; Plant update interval; After-hours growth multiplier; Fallback plant growth rate; Troubleshooting logs |
 
-**Fresh-install defaults in v0.5.1:** Employee work, plant growth, botanist watering and water protection are all enabled. Existing users retain their saved preferences, including any disabled settings. Start with a growth multiplier of `1` and increase it to your preference.
+The growth multiplier defaults to 1.05; 1 is standard and 2 is double. The plant update interval defaults to 60 seconds. After-hours time speed defaults to 1.0 (normal); smaller positive values accelerate the simulation. Saved user settings may differ.
 
-The refresh interval controls how often updates occur; it isn't intended as a growth multiplier. The growth-speed multiplier and seconds-per-simulated-minute setting control the simulation speed.
+## Automatic laundering (v0.6.0 release candidate)
 
-## Experimental in-game automatic laundering (v0.5.1 feature branch)
+Automatic laundering is **OFF by default**. Once enabled, the scheduler checks owned business capacity, existing jobs, carried cash and reserved cash. It rotates between businesses, starts at most one job per scheduling pass and waits for native confirmation (cash debit plus a new operation) before proceeding. The per-job cap does not set a global laundering budget.
 
-Schedule I 24/7 can use owned businesses to schedule in-game laundering jobs from available carried cash. This is a gameplay feature involving fictional game currency.
+Automatic job creation uses the game's laundering interface and restores its previous business selection after a successful submission, preserving manual terminal use. Uncertain transactions halt further automatic submissions for the session. In-progress jobs continue after the game's 4 AM freeze if **Finish jobs after 4 AM** is enabled.
 
-- Enable **Check available capacity** and **Experimental automatic jobs** in the phone mod settings. The payment option is off by default; back up your save before enabling it.
-- **Maximum per business (0 = full capacity)** limits the size of each scheduled job. For example, `5000` sets a $5,000 in-game per-business ceiling; `0` uses the game's current available business capacity.
-- Every automatic request uses the available business capacity, carried game cash, and configured per-business cap from its first job onward. Each request must still be verified before another is submitted.
-- The scheduler selects at most one business per pass, rotates across owned businesses, and waits for a request to be verified before another can begin.
-- New jobs are considered when existing operations finish and capacity becomes available. Existing operations can also continue progressing during the game's 4 AM freeze when **Continue after 4 AM** is enabled.
-- Switching automatic jobs off prevents future submissions; a previously submitted request can still finish and be checked. If confirmation is uncertain, automated requests halt for the remainder of the session.
+**Verification:** The user reports passing multi-business auto-job, manual compatibility, cash reserve, save/reload, and concurrent manual/auto tests. Final build and static regression tests still need to run before release. Multiplayer and extended unattended operation have not been independently verified.
 
-**Test coverage:** Earlier development builds confirmed automatic game operations, including a first-job $100 pilot and larger subsequent jobs. The newer full-capacity-first-job change needs fresh in-game validation. Subsequent scheduling updates, continuous unattended operation, multiplayer behavior, and restart behavior after extended 4 AM operation still need validation.
-
-**Troubleshooting:** If a request stops, disable the experimental option and inspect `MelonLoader/Latest.log` for `Auto laundering`, `Game auto request`, and `halted`. Do not repeatedly re-enable transactions on a valuable save after an unconfirmed request.
+**Troubleshooting:** Search `MelonLoader/Latest.log` for `Auto laundering`, `Game auto request`, and `halted`. If a request halts, disable auto-start and inspect the log instead of retrying on a valuable save.
 
 ## Optional JSON configuration
 
@@ -133,9 +130,9 @@ The JSON file is organized into `Workers`, `Plants`, `Laundering`, `Simulation`,
     "AfterHoursGrowthMultiplier": 3
   },
   "Laundering": {
-    "AutoLaunderFromInventory": true,
     "EnableAutoLaunderTransactions": false,
-    "AutoLaunderBusinessCap": 5000,
+    "AutoLaunderBusinessCap": 0,
+    "MinimumCashReserve": 0,
     "LaunderingProgressAfter4AM": true
   },
   "Simulation": {
