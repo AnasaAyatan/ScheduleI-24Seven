@@ -1107,7 +1107,7 @@ public sealed class Mod : MelonMod
         // with existing flat settings and MelonPreferences.
         var current = new
         {
-            Employees = new
+            Workers = new
             {
                 EmployeesAtEndOfDay = _employeeEnabled.Value,
                 BotanistWateringAfter4AM = _botanistWatering.Value
@@ -1124,6 +1124,7 @@ public sealed class Mod : MelonMod
             {
                 AutoLaunderFromInventory = _autoLaunder.Value,
                 EnableAutoLaunderTransactions = _allowAutoTransactions.Value,
+                AutoLaunderBusinessCap = _autoLaunderBusinessCap.Value,
                 LaunderingProgressAfter4AM = _launderingAfter4AM.Value
             },
             Simulation = new
@@ -1194,6 +1195,9 @@ public sealed class Mod : MelonMod
                     group.ValueKind == JsonValueKind.Object &&
                     group.TryGetProperty(key, out var nested))
                     return nested;
+                if (category == "Workers" && root.TryGetProperty("Employees", out var oldGroup) &&
+                    oldGroup.ValueKind == JsonValueKind.Object && oldGroup.TryGetProperty(key, out var oldValue))
+                    return oldValue;
                 return root.TryGetProperty(key, out var flat) ? flat : default;
             }
             bool ReadBool(string category, string key, bool existing)
@@ -1210,8 +1214,8 @@ public sealed class Mod : MelonMod
             }
             // Parse the full file before applying anything, so invalid JSON
             // cannot partially overwrite live preferences.
-            _employeeEnabled.Value = ReadBool("Employees", "EmployeesAtEndOfDay", _employeeEnabled.Value);
-            _botanistWatering.Value = ReadBool("Employees", "BotanistWateringAfter4AM", _botanistWatering.Value);
+            _employeeEnabled.Value = ReadBool("Workers", "EmployeesAtEndOfDay", _employeeEnabled.Value);
+            _botanistWatering.Value = ReadBool("Workers", "BotanistWateringAfter4AM", _botanistWatering.Value);
             _plantEnabled.Value = ReadBool("Plants", "PlantGrowthAtEndOfDay", _plantEnabled.Value);
             _protectWater.Value = ReadBool("Plants", "ProtectWaterDuringFrozenGrowth", _protectWater.Value);
             _autoLaunder.Value = ReadBool("Laundering", "AutoLaunderFromInventory", _autoLaunder.Value);
@@ -1226,6 +1230,7 @@ public sealed class Mod : MelonMod
             }
             _secondsPerMinute.Value = positive("Plants", "SecondsPerPlantMinute", _secondsPerMinute.Value);
             _realSecondsPerGameMinute.Value = positive("Simulation", "RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value);
+            _autoLaunderBusinessCap.Value = Math.Max(0f, ReadFloat("Laundering", "AutoLaunderBusinessCap", _autoLaunderBusinessCap.Value));
             _growthPerMinute.Value = Math.Max(0f, ReadFloat("Plants", "NormalizedGrowthPerMinute", _growthPerMinute.Value));
             _afterHoursBoost.Value = positive("Plants", "AfterHoursGrowthMultiplier", _afterHoursBoost.Value);
             _lastJsonWrite = modified;
