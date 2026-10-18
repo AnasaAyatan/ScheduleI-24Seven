@@ -48,6 +48,12 @@ dotnet build -c Release
 
 After a successful build, the DLL is in `bin\Release\net6.0\ScheduleI24Seven.dll`. Close the game before replacing the installed DLL.
 
+## In-game settings layout (v0.5.1 development)
+
+The Phone Mod Manager preferences are organized into distinct sections: **Workers**, **Plants**, **Laundering**, and **Advanced**. This matches the separate sections in the editable JSON file while keeping short, readable phone labels. The first three sections contain the corresponding gameplay features; Advanced contains shared timing and diagnostics.
+
+The new preference categories have new internal identifiers. On first launch, the mod loads existing settings from `UserData/ScheduleI24Seven.json`, including legacy `Employees` and flat JSON keys. Back up both the JSON file and `UserData/MelonPreferences.cfg` before updating. If the phone manager shows obsolete entries from the old category, those entries come from the saved legacy preferences and should not be edited; verify migration before cleaning them.
+
 ## Configure in game
 
 If you have **Mod Manager & Phone App**, open **Phone → Mod Manager → Schedule I 24/7**. Adjust the switches and number fields, then select **SAVE**. Changes are mirrored to the JSON settings file automatically.
