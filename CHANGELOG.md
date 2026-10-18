@@ -1,83 +1,36 @@
 # Changelog
 
-All notable user-facing changes to Schedule I 24/7 are documented here.
+User-facing changes by release. See [GitHub Releases](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases) for downloadable versions.
 
-This repository uses a development branch for unreleased work. Versions and dates below describe the tested or candidate builds, not a published stable release.
-
-## [0.6.0] — release candidate (unpublished)
+## [0.6.0] — 2026-10-18
 
 ### Added
-- Optional automatic native laundering jobs across owned businesses, with available-capacity checks, round-robin scheduling and per-job dollar limits.
-- Cash reserve setting that prevents automatic jobs from spending protected carried cash.
-- Native operation-count and cash-debit verification; uncertain submissions halt further automatic jobs for the current session.
-- Preservation of the selected business in the native laundering terminal after an automatic job, supporting manual transactions.
-- Grouped phone Mod Manager settings for Workers, Plants, Laundering, and Advanced, with shorter labels and clearer numerical descriptions.
+- Opt-in automatic laundering for eligible owned businesses with native capacity detection and round-robin allocation.
+- Configurable maximum per automatic job and minimum carried-cash reserve.
+- Operation and cash-change verification; automatic submissions stop if confirmation is uncertain.
+- Preservation of manual terminal business selection when the mod starts automatic jobs.
+- Clearer, categorized phone settings: Workers, Plants, Laundering and Advanced.
 
-### Default settings for fresh installations
-- **Auto-start laundering: OFF**
-- **After-hours time speed: 1.0 (normal)**
-- **Max per automatic job: 0 (full available capacity)**
-- **Cash to keep: $0**
+### Defaults
+- Automatic laundering **OFF**, after-hours time speed **1.0**, maximum per automatic job **$0** (full available capacity), cash reserve **$0**.
+- Existing users retain saved configuration values.
 
-Existing saved configuration values are retained rather than overwritten.
+### Validation
+- User-tested: multi-business automatic jobs, manual laundering compatibility, reserve protection, save/reload and simultaneous manual/automatic operation.
+- v0.6.0 release package and checksums verified.
+- Multiplayer and long unattended operation remain unverified.
 
-### Verified / pending
-- User reports successful gameplay tests for multi-business auto jobs, manual laundering, reserve, save/reload capacity protection, and manual/automatic coexistence.
-- Source-level static checks cover the safety gates and these defaults.
-- Final clean Release build and packaged artifact verification are pending before publication.
-- Multiplayer and extended unattended operation are not independently validated.
+## [0.5.0] — published
 
-## [0.5.0] — published stable release
+- First published stable version after the tested v0.4.11-alpha series.
+- Continued employee tasks, plant growth, botanist watering and moisture protection after 4 AM.
+- Adjustable growth timing and phone settings.
 
-- Prepared the first stable release candidate based on the user-tested v0.4.11-alpha build.
-- Set the mod's displayed version to v0.5.0, without changing gameplay logic.
-- Prepared installation guidance, release notes and a verification checklist.
-- Published on GitHub as v0.5.0; release ZIP available through GitHub Releases.
+## Earlier versions
 
-## [0.4.11-alpha] — release candidate (tested in game)
+- **0.4.11-alpha:** Growth multiplier adjustments and clearer settings descriptions.
+- **0.4.10-alpha:** Botanist watering after 4 AM, with assignment and authority checks.
+- **0.4.7-alpha:** Phone Mod Manager settings and JSON synchronization.
+- **Earlier development:** Frozen-time employee activity, plant growth and moisture protection.
 
-### Added
-- Clearer in-game descriptions for growth, employees, watering, and diagnostics.
-- A warning that very high growth multipliers may instantly mature plants or skip visible stages.
-- End-user installation and configuration guide.
-
-### Changed
-- Removed the artificial 300 simulated-minutes-per-update growth limit.
-- Removed the artificial 0.05 fallback-growth cap.
-- Removed the warning threshold for multipliers above 2×; multipliers remain uncapped.
-- Removed hidden minimum clamps for positive JSON timing and growth-multiplier values.
-- Kept normalized plant progress within its valid 0–100% range.
-- Disabled detailed diagnostic logs by default for new installs; existing saved preferences remain in effect.
-
-### Verification
-- User reported the 0.4.11-alpha build working in game.
-- The later description-only warning change has not yet been separately verified after rebuilding.
-
-## [0.4.10-alpha] — botanist watering
-
-### Added
-- After-hours botanist watering behavior using the game's assigned-pot and watering APIs.
-- Server-authority check and native work-in-progress check to avoid interrupting other tasks.
-
-### Verified
-- User reported botanist watering working after 4 AM.
-
-## [0.4.7-alpha] — phone settings
-
-- Made settings discoverable by Mod Manager & Phone App 2.2.4.
-- Added in-game toggles and numeric fields.
-- Synchronized settings between MelonPreferences and the JSON mirror.
-
-## Earlier development
-
-- Continued employee work during the end-of-day freeze.
-- Added frozen-time plant growth and protection against pot minute-based moisture drain.
-- Added plant-specific growth calculation and adjustable growth speed.
-
-## Known limitations
-
-- Growth rates rely on the game version's IL2CPP interfaces, with a fallback when native-rate calculation is unavailable.
-- The water-protection hook suppresses the whole pot minute update after 4 AM; other pot-minute behaviors may also pause.
-- `Employee.CanWork()` may bypass non-time restrictions during the 4 AM freeze.
-- Multiplayer scenarios and newer game versions need separate testing.
-- The mod does not automatically fill pots.
+For technical details and limitations, see [README.md](README.md).
