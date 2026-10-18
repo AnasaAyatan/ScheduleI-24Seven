@@ -591,8 +591,6 @@ public sealed class Mod : MelonMod
 
     private static void EvaluateAutomaticLaundering()
     {
-        if (!_autoLaunder.Value || _ownedBusinesses == null || _businessOperations == null)
-            return;
         double now = Watch.Elapsed.TotalSeconds;
         if (_pendingAutoBusiness != null)
         {
@@ -646,6 +644,7 @@ public sealed class Mod : MelonMod
             // This lets development tests use the safe default OFF position.
         }
         else _previousTransactionOptIn = true;
+        if (!_autoLaunder.Value || _ownedBusinesses == null || _businessOperations == null) return;
         if (now < _nextAutomaticLaunderingCheck) return;
         _nextAutomaticLaunderingCheck = now + 10;
         try
