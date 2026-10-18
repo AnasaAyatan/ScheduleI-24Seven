@@ -671,7 +671,7 @@ public sealed class Mod : MelonMod
             }
             if (_diagnostics.Value)
                 MelonLogger.Msg("TDD laundering allocation preview: cash=" + simulatedCash.ToString("F2") +
-                    ", businesses=" + businesses.Length + ", transactionMode=dry-run, paidOperationsDisabled=true.");
+                    ", businesses=" + businesses.Length + ", report=allocation-preview.");
             float plannedTotal = 0;
             int eligibleBusinessCount = 0;
             foreach (var business in businesses)
