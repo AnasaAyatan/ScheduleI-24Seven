@@ -80,12 +80,12 @@ Schedule I 24/7 can use owned businesses to schedule in-game laundering jobs fro
 
 - Enable **Check available capacity** and **Experimental automatic jobs** in the phone mod settings. The payment option is off by default; back up your save before enabling it.
 - **Maximum per business (0 = full capacity)** limits the size of each scheduled job. For example, `5000` sets a $5,000 in-game per-business ceiling; `0` uses the game's current available business capacity.
-- An initial request is capped at $100 per game session until its new operation and cash change are verified; subsequent requests use the selected capacity limit.
+- Every automatic request uses the available business capacity, carried game cash, and configured per-business cap from its first job onward. Each request must still be verified before another is submitted.
 - The scheduler selects at most one business per pass, rotates across owned businesses, and waits for a request to be verified before another can begin.
 - New jobs are considered when existing operations finish and capacity becomes available. Existing operations can also continue progressing during the game's 4 AM freeze when **Continue after 4 AM** is enabled.
 - Switching automatic jobs off prevents future submissions; a previously submitted request can still finish and be checked. If confirmation is uncertain, automated requests halt for the remainder of the session.
 
-**Test coverage:** One local test confirmed four consecutive automatic game requests ($100, $2,000, $5,000, $5,000) for a total of $12,100. Subsequent scheduling updates, continuous unattended operation, multiplayer behavior, and restart behavior after extended 4 AM operation still need validation.
+**Test coverage:** Earlier development builds confirmed automatic game operations, including a first-job $100 pilot and larger subsequent jobs. The newer full-capacity-first-job change needs fresh in-game validation. Subsequent scheduling updates, continuous unattended operation, multiplayer behavior, and restart behavior after extended 4 AM operation still need validation.
 
 **Troubleshooting:** If a request stops, disable the experimental option and inspect `MelonLoader/Latest.log` for `Auto laundering`, `Game auto request`, and `halted`. Do not repeatedly re-enable transactions on a valuable save after an unconfirmed request.
 
