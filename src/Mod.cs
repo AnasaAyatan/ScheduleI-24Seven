@@ -128,7 +128,7 @@ public sealed class Mod : MelonMod
         _autoLaunderBusinessCap = laundering.CreateEntry("AutoLaunderBusinessCap", 0f,
             "Maximum amount per business (0 = full)", "Limit each automatic job; 0 uses all available capacity.");
         _allowAutoTransactions = laundering.CreateEntry("EnableAutoLaunderTransactions", false,
-            "Experimental automatic jobs", "Enable only with a backed-up game save.");
+            "Automatically start laundering jobs", "Uses carried game cash and available business capacity; off by default.");
 
         _realSecondsPerGameMinute = advanced.CreateEntry("RealSecondsPerGameMinute", 1f,
             "Seconds per game minute", "1 = normal; 0.05 = very fast. Affects plants and laundering.");
@@ -535,7 +535,6 @@ public sealed class Mod : MelonMod
         return true;
     }
 
-    private static bool _pilotOperationVerified;
     private static float _cashBeforeAutoRequest = float.NaN;
 
     private static void StartAutoLaundering(object business, float amount)
@@ -567,7 +566,7 @@ public sealed class Mod : MelonMod
                 m.GetParameters()[0].ParameterType.IsAssignableFrom(business.GetType()));
             var selected = uiType.GetProperty("selectedAmountToLaunder", All)!;
             var confirm = uiType.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null)!;
-            float requestAmount = _pilotOperationVerified ? amount : Math.Min(amount, 100f);
+            float requestAmount = amount;
             if (_businessOperations == null || _businessIsServer?.GetValue(business) is not true)
                 throw new InvalidOperationException("Game business authority changed before submission.");
             _cashBeforeAutoRequest = ReadCarriedCash();
@@ -630,7 +629,6 @@ public sealed class Mod : MelonMod
                 {
                     MelonLogger.Msg("Auto laundering: new operation observed after paid request for $" +
                         _pendingAmount.ToString("F2") + ".");
-                    _pilotOperationVerified = true;
                     _pendingAutoBusiness = null;
                     _pendingOperationCount = -1;
                 }
