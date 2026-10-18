@@ -13,6 +13,8 @@ $required = [ordered]@{
     'Uncertain-request halt' = '_autoStartHalted = true;'
     'Single-request scheduler' = 'StartAutoLaundering(business, amount);'
     'Fair scheduler rotation' = '_nextBusinessIndex = (businessIndex + 1)'
+    'Pending request guard' = '_pendingAutoBusiness != null ||'
+    'Ten-second pacing' = '_nextAutoStart = now + 10;'
     'After-hours operation advancement' = 'AdvanceLaundering(elapsed, frozen);'
 }
 $failed = @()
