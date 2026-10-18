@@ -108,32 +108,32 @@ public sealed class Mod : MelonMod
         var advanced = MelonPreferences.CreateCategory("Schedule I 24/7_04_Advanced", "04 - Advanced");
 
         _employeeEnabled = workers.CreateEntry("EmployeesAtEndOfDay", true,
-            "Workers active after 4 AM", "Workers continue regular tasks when the clock stops.");
+            "Keep workers active after 4 AM", "Workers keep doing assigned tasks after the clock stops.");
         _botanistWatering = workers.CreateEntry("BotanistWateringAfter4AM", true,
-            "Botanists keep watering", "Botanists continue watering assigned plants after 4 AM.");
+            "Keep botanists watering", "Botanists water their assigned plants after 4 AM.");
 
         _plantEnabled = plants.CreateEntry("PlantGrowthAtEndOfDay", true,
-            "Plants grow after 4 AM", "Plants keep growing after 4 AM.");
+            "Keep plants growing after 4 AM", "Plants continue growing while the clock is stopped.");
         _protectWater = plants.CreateEntry("ProtectWaterDuringFrozenGrowth", true,
-            "Prevent moisture loss", "Prevents pots drying out during frozen time.");
-        _secondsPerMinute = plants.CreateEntry("SecondsPerPlantMinute", 60f,
-            "Plant update interval (seconds)", "Seconds between plant growth updates.");
-        _afterHoursBoost = plants.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
-            "Growth speed multiplier", "1 = normal; 2 = twice as fast.");
-        _growthPerMinute = plants.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
-            "Backup growth rate", "Used only when native plant calculations are unavailable.");
+            "Protect plant moisture", "Keep pots from drying out while time is stopped.");
+        _secondsPerMinute = advanced.CreateEntry("SecondsPerPlantMinute", 60f,
+            "Plant update interval (seconds)", "Advanced: seconds between after-hours plant updates; 60 = default.");
+        _afterHoursBoost = advanced.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
+            "After-hours growth multiplier", "Advanced: 1 = standard growth; 2 = double growth.");
+        _growthPerMinute = advanced.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
+            "Fallback plant growth rate", "Advanced: only used if native plant growth is unavailable; default 0.01.");
 
         _launderingAfter4AM = laundering.CreateEntry("LaunderingProgressAfter4AM", true,
-            "Continue operations after 4 AM", "Existing operations keep progressing.");
+            "Finish jobs after 4 AM", "Existing laundering jobs keep progressing after 4 AM.");
         _autoLaunderBusinessCap = laundering.CreateEntry("AutoLaunderBusinessCap", 0f,
-            "Maximum amount per business (0 = full)", "Limit each automatic job; 0 uses all available capacity.");
+            "Maximum per business (0 = full)", "Maximum dollars per automatic job; 0 uses all eligible capacity.");
         _minimumCashReserve = laundering.CreateEntry("MinimumCashReserve", 0f,
-            "Minimum cash to keep", "Retain this much carried cash; only the excess is used for automatic jobs.");
+            "Cash to keep ($)", "Automatic jobs only spend cash above this amount; 0 = no reserve.");
         _allowAutoTransactions = laundering.CreateEntry("EnableAutoLaunderTransactions", false,
-            "Automatically start laundering jobs", "Uses carried game cash and available business capacity; off by default.");
+            "Auto-start laundering", "OFF by default. Uses spare carried cash within business limits.");
 
         _realSecondsPerGameMinute = advanced.CreateEntry("RealSecondsPerGameMinute", 1f,
-            "Seconds per game minute", "1 = normal; 0.05 = very fast. Affects plants and laundering.");
+            "After-hours time speed", "1 = normal (default); 0.05 = very fast. Affects after-hours plants and laundering.");
         _diagnostics = advanced.CreateEntry("Diagnostics", false,
             "Troubleshooting logs", "Enable for troubleshooting, then turn off.");
 
