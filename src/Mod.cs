@@ -67,6 +67,7 @@ public sealed class Mod : MelonMod
     private static double _nextAutomaticLaunderingCheck;
     private static bool _autoLaunderApiWarning;
     private static double _nextAutoStart = 0;
+    private static double _ownedBusinessesFirstObservedAt = -1;
     private static int _nextBusinessIndex;
     private static MethodInfo? _nativeLaunderStart;
     private static MethodInfo? _nativeCashChange;
@@ -664,7 +665,14 @@ public sealed class Mod : MelonMod
         try
         {
             var businesses = EnumerateCommerceCollection(_ownedBusinesses.GetValue(null)).ToArray();
-            if (businesses.Length == 0) return;
+            if (businesses.Length == 0)
+            {
+                _ownedBusinessesFirstObservedAt = -1;
+                return;
+            }
+            if (_ownedBusinessesFirstObservedAt < 0)
+                _ownedBusinessesFirstObservedAt = now;
+            bool loadWindowPassed = now - _ownedBusinessesFirstObservedAt >= 60;
             int startIndex = _nextBusinessIndex % businesses.Length;
             var capacity = _businessType?.GetProperty("LaunderCapacity", All);
             var limit = _businessType?.GetProperty("appliedLaunderLimit", All);
@@ -733,7 +741,7 @@ public sealed class Mod : MelonMod
                     MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_autoLaunder.Value}.");
                 if (_diagnostics.Value)
                     MelonLogger.Msg($"Auto laundering gates: transactionsConfigured={_allowAutoTransactions.Value}, transactionsEffective={_allowAutoTransactions.Value && !_autoStartHalted}, halted={_autoStartHalted}, pending={_pendingAutoBusiness != null}, authoritative={authoritative}, active={active}, room={room:F2}, cooldownRemaining={Math.Max(0,_nextAutoStart-now):F1}.");
-                if (!_allowAutoTransactions.Value || _autoStartHalted || _pendingAutoBusiness != null ||
+                if (!loadWindowPassed || !_allowAutoTransactions.Value || _autoStartHalted || _pendingAutoBusiness != null ||
                     !authoritative || active != 0 || room < 1 || now < _nextAutoStart)
                     continue;
                 // One request per polling window. Stop all future requests on
