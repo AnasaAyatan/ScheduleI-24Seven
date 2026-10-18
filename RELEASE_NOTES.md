@@ -1,48 +1,21 @@
-# Schedule I 24/7 v0.5.1 — Release Draft
+# Schedule I 24/7 v0.6.0 — Release notes
 
-> **Unreleased development build.** Do not publish or merge until the v0.5.1 build is verified and approved. The current public stable release remains [v0.5.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.5.0).
+**Published:** October 18, 2026 · [GitHub release](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.6.0)
 
-## What's changed
+## Highlights
 
-All four main after-hours options are now **enabled by default on fresh installations**:
+Version 0.6.0 adds **optional automatic laundering** across owned businesses alongside the established 4 AM employee, botanist and plant features. It detects available capacity, respects a configurable cash reserve, verifies native transactions and preserves manual laundering-terminal selection. Phone settings are grouped into intuitive sections.
 
-- Employees work after 4 AM — ON (unchanged)
-- Plants grow after 4 AM — ON (previously OFF)
-- Botanists water after 4 AM — ON (previously OFF)
-- Prevent water loss after 4 AM — ON (unchanged)
+**Safe fresh-install defaults:** Auto-start laundering OFF · After-hours time speed 1.0 · Max per automatic job $0 (available capacity) · Cash to keep $0. Existing saved values are preserved.
 
-Existing installations retain their saved settings. Upgrading will **not** automatically re-enable an option that a player previously disabled.
+## Installation
 
-New in v0.5.1: automatic in-game laundering at owned businesses, with native transaction verification, round-robin scheduling, per-business cap (0 = available capacity), and continued jobs after 4 AM. Automatic transaction submission is OFF by default; existing user settings are preserved. The old $100 first-transaction pilot cap has been removed.\n\nConfiguration is organized under Workers, Plants, Laundering, Simulation, and Advanced in the JSON file. Legacy flat JSON and Employees category values remain readable. Phone Mod Manager categories have been reorganized, so back up `UserData/ScheduleI24Seven.json` and `UserData/MelonPreferences.cfg` before upgrading. Diagnostics stay off by default on fresh installs.
+Download `ScheduleI24Seven-v0.6.0.zip` under [release assets](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.6.0) when attached. Extract `ScheduleI24Seven.dll` into the Schedule I `Mods` folder; close the game before updating. Do not confuse GitHub's generated *Source code* archives with a compiled mod.
 
-## Install and update
+**Tested environment:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, optional Mod Manager & Phone App 2.2.4.
 
-1. Install MelonLoader for Schedule I (tested with v0.7.3 Open-Beta).
-2. Close the game.
-3. Replace the existing `ScheduleI24Seven.dll` in the game's `Mods` folder with the newly built DLL once released.
-4. Launch the game and check the settings through the optional Mod Manager & Phone App v2.2.4.
+## Testing and limits
 
-Existing settings are retained from `UserData/MelonPreferences.cfg` and `UserData/ScheduleI24Seven.json`. To enable previously disabled options, change them manually in the phone menu or JSON file.
+User-reported in-game tests passed for multiple automatic laundering jobs, manual terminal compatibility, cash reserve and save/reload. Multiplayer, newer game versions and extended unattended operation need separate testing. Automatic jobs halt on uncertain transaction confirmation. Review the [README](README.md) for detailed settings and troubleshooting.
 
-## Compatibility and notes
-
-- Tested previous release: Schedule I 0.4.7f12 / MelonLoader 0.7.3 Open-Beta.
-- Very high positive growth multipliers can make plants mature instantly or skip visible growth stages.
-- Botanists still require assigned pots and available watering supplies.
-- Pot protection suppresses the entire frozen-time pot minute update, which may affect other pot minute behavior.
-- Newer game versions and multiplayer require separate verification.
-
-## Before release
-
-- [ ] Pull development branch and build v0.5.1 successfully.
-- [ ] Confirm the loader identifies v0.5.1.
-- [ ] Verify the four defaults on a fresh settings profile, without replacing a user's actual settings.
-- [ ] Verify existing settings persist across upgrade.
-- [ ] Test work, watering, growth and moisture protection after 4 AM.
-- [ ] Confirm first automatic laundering request uses actual configured business limit, not $100.
-- [ ] Verify automatic operation completes and another starts after 4 AM.
-- [ ] Verify categorized phone settings and legacy JSON migration with existing settings.
-- [ ] Package and checksum the DLL ZIP.
-- [ ] Obtain approval before merging, tagging or publishing to GitHub and Nexus Mods.
-
-Copyright © 2026 AnasaAyatan. All rights reserved. See [LICENSE](LICENSE).
+© 2026 AnasaAyatan. See [LICENSE](LICENSE).
