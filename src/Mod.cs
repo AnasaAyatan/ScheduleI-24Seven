@@ -536,9 +536,9 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Auto laundering native request staging: eligible=" + eligible +
                 ", amount=" + amount.ToString("F2") + ", reason=" + reason +
                 ", submitted=false.");
-        // This path deliberately never changes cash, UI state or game operations.
-        // Payment submission must be implemented through the native confirmation
-        // workflow and must verify authoritative operation creation before retrying.
+        if (!eligible) return;
+        if (_diagnostics.Value)
+            MelonLogger.Msg("Game transaction preflight passed; native confirmation integration pending.");
     }
 
     private static void EvaluateAutomaticLaundering()
