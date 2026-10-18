@@ -67,6 +67,7 @@ public sealed class Mod : MelonMod
     private static double _nextAutomaticLaunderingCheck;
     private static bool _autoLaunderApiWarning;
     private static double _nextAutoStart = 0;
+    private static int _nextBusinessIndex;
     private static MethodInfo? _nativeLaunderStart;
     private static MethodInfo? _nativeCashChange;
     private static PropertyInfo? _cashBalanceProperty;
@@ -650,6 +651,8 @@ public sealed class Mod : MelonMod
         try
         {
             var businesses = EnumerateCommerceCollection(_ownedBusinesses.GetValue(null)).ToArray();
+            if (businesses.Length == 0) return;
+            int startIndex = _nextBusinessIndex % businesses.Length;
             var capacity = _businessType?.GetProperty("LaunderCapacity", All);
             var limit = _businessType?.GetProperty("appliedLaunderLimit", All);
             var total = _businessType?.GetProperty("currentLaunderTotal", All);
@@ -674,8 +677,10 @@ public sealed class Mod : MelonMod
                     ", businesses=" + businesses.Length + ", report=allocation-preview.");
             float plannedTotal = 0;
             int eligibleBusinessCount = 0;
-            foreach (var business in businesses)
+            for (int businessOffset = 0; businessOffset < businesses.Length; businessOffset++)
             {
+                int businessIndex = (startIndex + businessOffset) % businesses.Length;
+                var business = businesses[businessIndex];
                 bool authoritative = _businessIsServer?.GetValue(business) is true;
                 int active = EnumerateCommerceCollection(_businessOperations.GetValue(business)).Count();
                 float businessCapacity = Convert.ToSingle(capacity.GetValue(business));
@@ -736,7 +741,8 @@ public sealed class Mod : MelonMod
                 if (amount < 1) continue;
                 _nextAutoStart = now + 30;
                 StartAutoLaundering(business, amount);
-                // At most one native request per scan; revisit all businesses next poll.
+                _nextBusinessIndex = (businessIndex + 1) % businesses.Length;
+                // Rotate the next scan so no owned business is permanently prioritized.
                 break;
             }
             if (_diagnostics.Value)
