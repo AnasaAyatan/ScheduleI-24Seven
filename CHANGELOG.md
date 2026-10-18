@@ -4,25 +4,28 @@ All notable user-facing changes to Schedule I 24/7 are documented here.
 
 This repository uses a development branch for unreleased work. Versions and dates below describe the tested or candidate builds, not a published stable release.
 
-## [0.5.1] — unreleased
+## [0.6.0] — release candidate (unpublished)
 
 ### Added
-- Automatic native in-game laundering jobs for owned businesses, with per-business limits and automatic restarting after capacity is restored.
-- Categorized phone settings and editable JSON for Workers, Plants, Laundering, Simulation and Advanced; legacy JSON keys remain accepted.
-- Per-request cash and operation verification with a fail-closed safeguard.
+- Optional automatic native laundering jobs across owned businesses, with available-capacity checks, round-robin scheduling and per-job dollar limits.
+- Cash reserve setting that prevents automatic jobs from spending protected carried cash.
+- Native operation-count and cash-debit verification; uncertain submissions halt further automatic jobs for the current session.
+- Preservation of the selected business in the native laundering terminal after an automatic job, supporting manual transactions.
+- Grouped phone Mod Manager settings for Workers, Plants, Laundering, and Advanced, with shorter labels and clearer numerical descriptions.
 
-### Changed
-- Automatic jobs use available capacity from their first request instead of an artificial $100 pilot limit.
-- Automatic job submission remains OFF by default on fresh installs.
-- Enabled after-hours plant growth by default for fresh installations.
-- Enabled after-hours botanist watering by default for fresh installations.
-- Employee work and pot moisture protection remain enabled by default.
-- Existing users' saved JSON and MelonPreferences settings remain unchanged.
-- No change to growth algorithms or watering task logic.
+### Default settings for fresh installations
+- **Auto-start laundering: OFF**
+- **After-hours time speed: 1.0 (normal)**
+- **Max per automatic job: 0 (full available capacity)**
+- **Cash to keep: $0**
 
-### Verification
-- Previous experimental builds passed multiple native transactions and 4 AM restart tests.
-- The final settings migration and no-$100-first-job changes still require a fresh build and in-game smoke test before publication.
+Existing saved configuration values are retained rather than overwritten.
+
+### Verified / pending
+- User reports successful gameplay tests for multi-business auto jobs, manual laundering, reserve, save/reload capacity protection, and manual/automatic coexistence.
+- Source-level static checks cover the safety gates and these defaults.
+- Final clean Release build and packaged artifact verification are pending before publication.
+- Multiplayer and extended unattended operation are not independently validated.
 
 ## [0.5.0] — published stable release
 
