@@ -476,9 +476,9 @@ public sealed class Mod : MelonMod
 
     private static float MinimumAutomaticJobAmount()
     {
-        // A $100 native operation was verified in-game. Fail conservatively
-        // when the game does not expose its minimum through the interface.
-        const float verifiedFallback = 100f;
+        // Schedule whole-dollar jobs using the game's minimum when available.
+        // If the game does not expose one, allow jobs starting at $1.
+        const float verifiedFallback = 1f;
         try
         {
             var ui = ResolveLaunderingInterface();
