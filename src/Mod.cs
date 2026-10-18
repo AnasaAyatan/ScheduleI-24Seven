@@ -290,7 +290,7 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("Plant enumerator: " + (_findPlants?.ToString() ?? "not discovered"));
         }
 
-        MelonLogger.Msg("Schedule I 24/7 v0.5.1 loaded.");
+        MelonLogger.Msg("Schedule I 24/7 v0.6.0 loaded.");
         MelonLogger.Msg($"Live preferences: employees={_employeeEnabled.Value}, plants={_plantEnabled.Value}, " +
                         $"secondsPerPlantMinute={_secondsPerMinute.Value}, diagnostics={_diagnostics.Value}; " +
                         $"plantTickMethod={_plantMinutes != null}, plantEnumerator={_findPlants != null}, protectWater={_protectWater.Value}, moisturePatch={_moisturePatchReady}, growthSetter={_setGrowthProgress != null}, growthTime={_growthTime != null}, boost={_afterHoursBoost.Value}, secondsPerGameMinute={_realSecondsPerGameMinute.Value}.");
