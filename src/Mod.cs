@@ -581,6 +581,9 @@ public sealed class Mod : MelonMod
         {
             _autoStartHalted = true;
             _pendingAutoBusiness = null;
+            _pendingOperationCount = -1;
+            _pendingAmount = 0f;
+            _cashBeforeAutoRequest = float.NaN;
             MelonLogger.Error("Game auto request halted after uncertain submission: " + ex.Message);
         }
     }
