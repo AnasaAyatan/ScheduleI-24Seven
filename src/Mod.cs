@@ -112,7 +112,7 @@ public sealed class Mod : MelonMod
         _launderingAfter4AM = prefs.CreateEntry("LaunderingProgressAfter4AM", true,
             "03 Laundering | Continue after 4 AM", "Existing laundering operations keep progressing.");
         _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
-            "03 Laundering | Check available capacity", "Read-only preparation for auto laundering. Does not spend cash or start jobs.");
+            "03 Laundering | Check available capacity", "Checks eligible owned businesses; start jobs only when experimental automatic jobs are enabled.");
         _autoLaunderBusinessCap = prefs.CreateEntry("AutoLaunderBusinessCap", 0f,
             "03 Laundering | Maximum per business (0 = full capacity)",
             "Limit each automatic game job to this amount. 0 uses available capacity.");
