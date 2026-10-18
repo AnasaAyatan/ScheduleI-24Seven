@@ -551,10 +551,14 @@ public sealed class Mod : MelonMod
             var selected = uiType.GetProperty("selectedAmountToLaunder", All)!;
             var confirm = uiType.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null)!;
             float requestAmount = _pilotOperationVerified ? amount : Math.Min(amount, 100f);
+            if (_businessOperations == null || _businessIsServer?.GetValue(business) is not true)
+                throw new InvalidOperationException("Game business authority changed before submission.");
             _cashBeforeAutoRequest = ReadCarriedCash();
             _pendingAutoBusiness = business;
             _pendingAmount = requestAmount;
-            _pendingOperationCount = EnumerateCommerceCollection(_businessOperations!.GetValue(business)).Count();
+            _pendingOperationCount = EnumerateCommerceCollection(_businessOperations.GetValue(business)).Count();
+            if (_pendingOperationCount != 0)
+                throw new InvalidOperationException("Game business gained an operation before submission.");
             _pendingAutoSince = Watch.Elapsed.TotalSeconds;
             initialize.Invoke(ui, new object[] { business });
             selected.SetValue(ui, Convert.ChangeType(requestAmount, selected.PropertyType));
