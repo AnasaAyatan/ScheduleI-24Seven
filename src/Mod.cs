@@ -68,6 +68,7 @@ public sealed class Mod : MelonMod
     private static bool _autoLaunderApiWarning;
     private static double _nextAutoStart = 0;
     private static double _ownedBusinessesFirstObservedAt = -1;
+    private static int _lastObservedOwnedBusinessCount = -1;
     private static int _nextBusinessIndex;
     private static MethodInfo? _nativeLaunderStart;
     private static MethodInfo? _nativeCashChange;
@@ -688,10 +689,17 @@ public sealed class Mod : MelonMod
             if (businesses.Length == 0)
             {
                 _ownedBusinessesFirstObservedAt = -1;
+                _lastObservedOwnedBusinessCount = -1;
                 return;
             }
-            if (_ownedBusinessesFirstObservedAt < 0)
+            // The owned business list can populate incrementally while a save loads.
+            // Restart the safety window when that list changes.
+            if (_ownedBusinessesFirstObservedAt < 0 ||
+                businesses.Length != _lastObservedOwnedBusinessCount)
+            {
                 _ownedBusinessesFirstObservedAt = now;
+                _lastObservedOwnedBusinessCount = businesses.Length;
+            }
             bool loadWindowPassed = now - _ownedBusinessesFirstObservedAt >= 60;
             int startIndex = _nextBusinessIndex % businesses.Length;
             var capacity = _businessType?.GetProperty("LaunderCapacity", All);
