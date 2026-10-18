@@ -91,6 +91,7 @@ public sealed class Mod : MelonMod
     // Deliberately no transaction writes until inventory debit is independently verified.
     private static MelonPreferences_Entry<bool> _autoLaunder = null!;
     private static MelonPreferences_Entry<float> _autoLaunderBusinessCap = null!;
+    private static MelonPreferences_Entry<float> _minimumCashReserve = null!;
     private static MelonPreferences_Entry<bool> _allowAutoTransactions = null!;
     private static MelonPreferences_Entry<float> _secondsPerMinute = null!;
     private static MelonPreferences_Entry<float> _growthPerMinute = null!;
@@ -129,6 +130,8 @@ public sealed class Mod : MelonMod
             "Check available capacity", "Check owned businesses for available capacity.");
         _autoLaunderBusinessCap = laundering.CreateEntry("AutoLaunderBusinessCap", 0f,
             "Maximum amount per business (0 = full)", "Limit each automatic job; 0 uses all available capacity.");
+        _minimumCashReserve = laundering.CreateEntry("MinimumCashReserve", 0f,
+            "Minimum cash to keep", "Retain this much carried cash; only the excess is used for automatic jobs.");
         _allowAutoTransactions = laundering.CreateEntry("EnableAutoLaunderTransactions", false,
             "Automatically start laundering jobs", "Uses carried game cash and available business capacity; off by default.");
 
@@ -546,7 +549,9 @@ public sealed class Mod : MelonMod
             return false;
         }
         float cash = ReadCarriedCash();
-        if (!float.IsFinite(cash) || cash < amount)
+        float reserve = _minimumCashReserve.Value;
+        if (!float.IsFinite(reserve) || reserve < 0f ||
+            !float.IsFinite(cash) || cash - reserve < amount)
         {
             reason = "Insufficient or invalid cash balance.";
             return false;
@@ -715,6 +720,8 @@ public sealed class Mod : MelonMod
                 return;
             }
             float simulatedCash = ReadCarriedCash();
+            float reserve = _minimumCashReserve.Value;
+            if (!float.IsFinite(reserve) || reserve < 0f) return;
             if (!float.IsFinite(simulatedCash) || simulatedCash < 0)
             {
                 if (_diagnostics.Value)
@@ -788,7 +795,7 @@ public sealed class Mod : MelonMod
                 float configuredCap = _autoLaunderBusinessCap.Value;
                 if (!float.IsFinite(configuredCap) || configuredCap < 0) continue;
                 float effectiveRoom = configuredCap > 0 ? Math.Min(room, configuredCap) : room;
-                float amount = (float)Math.Floor(Math.Min(cash, effectiveRoom));
+                float amount = (float)Math.Floor(Math.Min(Math.Max(0f, cash - reserve), effectiveRoom));
                 if (amount < MinimumAutomaticJobAmount()) continue;
                 // The 10-second polling interval already throttles requests.
                 // Pending operation verification prevents overlapping submissions.
@@ -1166,6 +1173,7 @@ public sealed class Mod : MelonMod
                 AutoLaunderFromInventory = _autoLaunder.Value,
                 EnableAutoLaunderTransactions = _allowAutoTransactions.Value,
                 AutoLaunderBusinessCap = _autoLaunderBusinessCap.Value,
+                MinimumCashReserve = _minimumCashReserve.Value,
                 LaunderingProgressAfter4AM = _launderingAfter4AM.Value
             },
             Simulation = new
@@ -1272,6 +1280,7 @@ public sealed class Mod : MelonMod
             _secondsPerMinute.Value = positive("Plants", "SecondsPerPlantMinute", _secondsPerMinute.Value);
             _realSecondsPerGameMinute.Value = positive("Simulation", "RealSecondsPerGameMinute", _realSecondsPerGameMinute.Value);
             _autoLaunderBusinessCap.Value = Math.Max(0f, ReadFloat("Laundering", "AutoLaunderBusinessCap", _autoLaunderBusinessCap.Value));
+            _minimumCashReserve.Value = Math.Max(0f, ReadFloat("Laundering", "MinimumCashReserve", _minimumCashReserve.Value));
             _growthPerMinute.Value = Math.Max(0f, ReadFloat("Plants", "NormalizedGrowthPerMinute", _growthPerMinute.Value));
             _afterHoursBoost.Value = positive("Plants", "AfterHoursGrowthMultiplier", _afterHoursBoost.Value);
             _lastJsonWrite = modified;
