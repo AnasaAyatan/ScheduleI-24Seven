@@ -736,6 +736,8 @@ public sealed class Mod : MelonMod
                 if (amount < 1) continue;
                 _nextAutoStart = now + 30;
                 StartAutoLaundering(business, amount);
+                // At most one native request per scan; revisit all businesses next poll.
+                break;
             }
             if (_diagnostics.Value)
                 MelonLogger.Msg("TDD laundering plan summary: eligibleBusinesses=" +
