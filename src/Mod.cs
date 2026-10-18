@@ -531,7 +531,8 @@ public sealed class Mod : MelonMod
         float configuredCap = _autoLaunderBusinessCap.Value;
         if (!float.IsFinite(capacity) || !float.IsFinite(allowed) ||
             !float.IsFinite(used) || !float.IsFinite(configuredCap) ||
-            configuredCap < 0)
+            capacity <= 0 || allowed < 0 || used < 0 ||
+            configuredCap < 0 || used > allowed || used > capacity)
         {
             reason = "Business capacity or configured cap is invalid.";
             return false;
@@ -726,7 +727,9 @@ public sealed class Mod : MelonMod
                 float businessCapacity = Convert.ToSingle(capacity.GetValue(business));
                 float allowed = Convert.ToSingle(limit.GetValue(business));
                 float used = Convert.ToSingle(total.GetValue(business));
-                if (!float.IsFinite(businessCapacity) || !float.IsFinite(allowed) || !float.IsFinite(used))
+                if (!float.IsFinite(businessCapacity) || !float.IsFinite(allowed) || !float.IsFinite(used) ||
+                    businessCapacity <= 0 || allowed < 0 || used < 0 ||
+                    used > allowed || used > businessCapacity)
                     continue;
                 float room = Math.Max(0, Math.Min(businessCapacity, allowed - used));
                 if (!float.IsFinite(room)) continue;
