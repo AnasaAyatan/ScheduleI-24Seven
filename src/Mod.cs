@@ -118,7 +118,7 @@ public sealed class Mod : MelonMod
             "Caps planned allocation for each eligible owned business. 0 uses available capacity; payments are currently disabled.");
         _allowAutoTransactions = prefs.CreateEntry("EnableAutoLaunderTransactions", false,
             "03 Laundering | Experimental automatic jobs",
-            "This legacy toggle is inactive. Automatic payments cannot start in this development build.");
+            "Experimental feature: enable only with a backed-up game save.");
         _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
             "04 Advanced | Seconds per game minute", "1 = regular test speed; 0.05 = very fast. Affects plants and laundering.");
         _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f,
