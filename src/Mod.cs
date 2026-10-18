@@ -530,6 +530,7 @@ public sealed class Mod : MelonMod
     }
 
     private static bool _pilotOperationVerified;
+    private static float _cashBeforeAutoRequest = float.NaN;
 
     private static void StartAutoLaundering(object business, float amount)
     {
@@ -550,6 +551,7 @@ public sealed class Mod : MelonMod
             var selected = uiType.GetProperty("selectedAmountToLaunder", All)!;
             var confirm = uiType.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null)!;
             float requestAmount = _pilotOperationVerified ? amount : Math.Min(amount, 100f);
+            _cashBeforeAutoRequest = ReadCarriedCash();
             _pendingAutoBusiness = business;
             _pendingAmount = requestAmount;
             _pendingOperationCount = EnumerateCommerceCollection(_businessOperations!.GetValue(business)).Count();
@@ -579,7 +581,18 @@ public sealed class Mod : MelonMod
             {
                 int observedCount = _businessOperations == null ? -1 :
                     EnumerateCommerceCollection(_businessOperations.GetValue(_pendingAutoBusiness)).Count();
-                bool confirmed = _pendingOperationCount >= 0 && observedCount > _pendingOperationCount;
+                float cashNow = ReadCarriedCash();
+                bool cashMatched = float.IsFinite(_cashBeforeAutoRequest) && float.IsFinite(cashNow) &&
+                    Math.Abs((_cashBeforeAutoRequest - cashNow) - _pendingAmount) <= 0.05f;
+                bool confirmed = _pendingOperationCount >= 0 && observedCount > _pendingOperationCount && cashMatched;
+                if (observedCount > _pendingOperationCount && !cashMatched)
+                {
+                    _autoStartHalted = true;
+                    _pendingAutoBusiness = null;
+                    _pendingOperationCount = -1;
+                    MelonLogger.Error("Auto request halted: game operation appeared without matching cash change.");
+                    return;
+                }
                 if (confirmed)
                 {
                     MelonLogger.Msg("Auto laundering: new operation observed after paid request for $" +
@@ -683,7 +696,7 @@ public sealed class Mod : MelonMod
                 if (_diagnostics.Value)
                     MelonLogger.Msg($"Auto laundering eligibility: server={authoritative}, active={active}, availableCapacity={room:F2}, enabled={_autoLaunder.Value}.");
                 if (_diagnostics.Value)
-                    MelonLogger.Msg($"Auto laundering gates: transactionsConfigured={_allowAutoTransactions.Value}, transactionsEffective=false, halted={_autoStartHalted}, pending={_pendingAutoBusiness != null}, authoritative={authoritative}, active={active}, room={room:F2}, cooldownRemaining={Math.Max(0,_nextAutoStart-now):F1}.");
+                    MelonLogger.Msg($"Auto laundering gates: transactionsConfigured={_allowAutoTransactions.Value}, transactionsEffective={_allowAutoTransactions.Value && !_autoStartHalted}, halted={_autoStartHalted}, pending={_pendingAutoBusiness != null}, authoritative={authoritative}, active={active}, room={room:F2}, cooldownRemaining={Math.Max(0,_nextAutoStart-now):F1}.");
                 if (!_allowAutoTransactions.Value || _autoStartHalted || _pendingAutoBusiness != null ||
                     !authoritative || active != 0 || room < 1 || now < _nextAutoStart)
                     continue;
