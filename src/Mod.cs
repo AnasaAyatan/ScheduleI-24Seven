@@ -538,7 +538,7 @@ public sealed class Mod : MelonMod
         if (_diagnostics.Value)
             MelonLogger.Msg("Auto laundering native request staging: eligible=" + eligible +
                 ", amount=" + amount.ToString("F2") + ", reason=" + reason +
-                ", submitted=false.");
+                ", stage=preflight.");
         if (!eligible) return;
         try
         {
