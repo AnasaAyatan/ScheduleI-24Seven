@@ -97,38 +97,43 @@ public sealed class Mod : MelonMod
 
     public override void OnInitializeMelon()
     {
-        // Mod Manager & Phone App exposes the mod's original preference category.
-        // Keep a single discoverable category so settings do not become a blank
-        // legacy panel. Human-readable section prefixes group the controls.
-        var prefs = MelonPreferences.CreateCategory("Schedule I 24/7_Settings", "Schedule I 24/7");
-        _employeeEnabled = prefs.CreateEntry("EmployeesAtEndOfDay", true,
-            "01 Staff | Keep workers active after 4 AM", "Workers continue regular tasks when the clock stops.");
-        _botanistWatering = prefs.CreateEntry("BotanistWateringAfter4AM", true,
-            "01 Staff | Keep botanists watering", "Botanists continue watering their assigned plants after 4 AM.");
-        _plantEnabled = prefs.CreateEntry("PlantGrowthAtEndOfDay", true,
-            "02 Plants | Keep plants growing", "Plants keep growing after 4 AM.");
-        _protectWater = prefs.CreateEntry("ProtectWaterDuringFrozenGrowth", true,
-            "02 Plants | Prevent moisture loss", "Prevents pots drying out during frozen time.");
-        _launderingAfter4AM = prefs.CreateEntry("LaunderingProgressAfter4AM", true,
-            "03 Laundering | Continue after 4 AM", "Existing laundering operations keep progressing.");
-        _autoLaunder = prefs.CreateEntry("AutoLaunderFromInventory", true,
-            "03 Laundering | Check available capacity", "Checks eligible owned businesses; start jobs only when experimental automatic jobs are enabled.");
-        _autoLaunderBusinessCap = prefs.CreateEntry("AutoLaunderBusinessCap", 0f,
-            "03 Laundering | Maximum per business (0 = full capacity)",
-            "Limit each automatic game job to this amount. 0 uses available capacity.");
-        _allowAutoTransactions = prefs.CreateEntry("EnableAutoLaunderTransactions", false,
-            "03 Laundering | Experimental automatic jobs",
-            "Experimental feature: enable only with a backed-up game save.");
-        _realSecondsPerGameMinute = prefs.CreateEntry("RealSecondsPerGameMinute", 1f,
-            "04 Advanced | Seconds per game minute", "1 = regular test speed; 0.05 = very fast. Affects plants and laundering.");
-        _secondsPerMinute = prefs.CreateEntry("SecondsPerPlantMinute", 60f,
-            "04 Advanced | Plant update interval", "Seconds between plant growth updates.");
-        _afterHoursBoost = prefs.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
-            "04 Advanced | Plant growth multiplier", "1 = normal; 2 = twice as fast.");
-        _growthPerMinute = prefs.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
-            "04 Advanced | Backup growth rate", "Only used when native plant calculations are unavailable.");
-        _diagnostics = prefs.CreateEntry("Diagnostics", false,
-            "04 Advanced | Troubleshooting logs", "Enable while investigating bugs, then turn off.");
+        // Mod Manager & Phone App supports multiple pref categories identified
+        // by the mod name prefix, rendering each section under its own header.
+        // Stable identifiers preserve entries across future updates.
+        var workers = MelonPreferences.CreateCategory("Schedule I 24/7_01_Workers", "01 - Workers");
+        var plants = MelonPreferences.CreateCategory("Schedule I 24/7_02_Plants", "02 - Plants");
+        var laundering = MelonPreferences.CreateCategory("Schedule I 24/7_03_Laundering", "03 - Laundering");
+        var advanced = MelonPreferences.CreateCategory("Schedule I 24/7_04_Advanced", "04 - Advanced");
+
+        _employeeEnabled = workers.CreateEntry("EmployeesAtEndOfDay", true,
+            "Workers active after 4 AM", "Workers continue regular tasks when the clock stops.");
+        _botanistWatering = workers.CreateEntry("BotanistWateringAfter4AM", true,
+            "Botanists keep watering", "Botanists continue watering assigned plants after 4 AM.");
+
+        _plantEnabled = plants.CreateEntry("PlantGrowthAtEndOfDay", true,
+            "Plants grow after 4 AM", "Plants keep growing after 4 AM.");
+        _protectWater = plants.CreateEntry("ProtectWaterDuringFrozenGrowth", true,
+            "Prevent moisture loss", "Prevents pots drying out during frozen time.");
+        _secondsPerMinute = plants.CreateEntry("SecondsPerPlantMinute", 60f,
+            "Plant update interval (seconds)", "Seconds between plant growth updates.");
+        _afterHoursBoost = plants.CreateEntry("AfterHoursGrowthMultiplier", 1.05f,
+            "Growth speed multiplier", "1 = normal; 2 = twice as fast.");
+        _growthPerMinute = plants.CreateEntry("NormalizedGrowthPerMinute", 0.01f,
+            "Backup growth rate", "Used only when native plant calculations are unavailable.");
+
+        _launderingAfter4AM = laundering.CreateEntry("LaunderingProgressAfter4AM", true,
+            "Continue operations after 4 AM", "Existing operations keep progressing.");
+        _autoLaunder = laundering.CreateEntry("AutoLaunderFromInventory", true,
+            "Check available capacity", "Check owned businesses for available capacity.");
+        _autoLaunderBusinessCap = laundering.CreateEntry("AutoLaunderBusinessCap", 0f,
+            "Maximum amount per business (0 = full)", "Limit each automatic job; 0 uses all available capacity.");
+        _allowAutoTransactions = laundering.CreateEntry("EnableAutoLaunderTransactions", false,
+            "Experimental automatic jobs", "Enable only with a backed-up game save.");
+
+        _realSecondsPerGameMinute = advanced.CreateEntry("RealSecondsPerGameMinute", 1f,
+            "Seconds per game minute", "1 = normal; 0.05 = very fast. Affects plants and laundering.");
+        _diagnostics = advanced.CreateEntry("Diagnostics", false,
+            "Troubleshooting logs", "Enable for troubleshooting, then turn off.");
 
         _jsonPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "UserData"), "ScheduleI24Seven.json");
         InitializeJson();
