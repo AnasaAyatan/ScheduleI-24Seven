@@ -529,6 +529,8 @@ public sealed class Mod : MelonMod
         return true;
     }
 
+    private static bool _pilotOperationVerified;
+
     private static void StartAutoLaundering(object business, float amount)
     {
         bool eligible = PrepareNativeLaunderingRequest(business, amount, out string reason);
@@ -537,8 +539,33 @@ public sealed class Mod : MelonMod
                 ", amount=" + amount.ToString("F2") + ", reason=" + reason +
                 ", submitted=false.");
         if (!eligible) return;
-        if (_diagnostics.Value)
-            MelonLogger.Msg("Game transaction preflight passed; native confirmation integration pending.");
+        try
+        {
+            var ui = ResolveLaunderingInterface();
+            if (ui == null) throw new InvalidOperationException("Game interface unavailable.");
+            var uiType = ui.GetType();
+            var initialize = uiType.GetMethods(All).First(m =>
+                m.Name == "Initialize" && m.GetParameters().Length == 1 &&
+                m.GetParameters()[0].ParameterType.IsAssignableFrom(business.GetType()));
+            var selected = uiType.GetProperty("selectedAmountToLaunder", All)!;
+            var confirm = uiType.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null)!;
+            float requestAmount = _pilotOperationVerified ? amount : Math.Min(amount, 100f);
+            _pendingAutoBusiness = business;
+            _pendingAmount = requestAmount;
+            _pendingOperationCount = EnumerateCommerceCollection(_businessOperations!.GetValue(business)).Count();
+            _pendingAutoSince = Watch.Elapsed.TotalSeconds;
+            initialize.Invoke(ui, new object[] { business });
+            selected.SetValue(ui, Convert.ChangeType(requestAmount, selected.PropertyType));
+            confirm.Invoke(ui, null);
+            MelonLogger.Msg("Game auto request submitted using native confirmation: " +
+                requestAmount.ToString("F2"));
+        }
+        catch (Exception ex)
+        {
+            _autoStartHalted = true;
+            _pendingAutoBusiness = null;
+            MelonLogger.Error("Game auto request halted after uncertain submission: " + ex.Message);
+        }
     }
 
     private static void EvaluateAutomaticLaundering()
@@ -557,6 +584,7 @@ public sealed class Mod : MelonMod
                 {
                     MelonLogger.Msg("Auto laundering: new operation observed after paid request for $" +
                         _pendingAmount.ToString("F2") + ".");
+                    _pilotOperationVerified = true;
                     _pendingAutoBusiness = null;
                     _pendingOperationCount = -1;
                 }
