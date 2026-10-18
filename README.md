@@ -107,6 +107,38 @@ For advanced editing, open that file in a text editor. For example:
 }
 ```
 
+The JSON file is organized into `Workers`, `Plants`, `Laundering`, `Simulation`, and `Advanced` objects. For example:
+
+```json
+{
+  "Workers": {
+    "EmployeesAtEndOfDay": true,
+    "BotanistWateringAfter4AM": true
+  },
+  "Plants": {
+    "PlantGrowthAtEndOfDay": true,
+    "ProtectWaterDuringFrozenGrowth": true,
+    "SecondsPerPlantMinute": 30,
+    "NormalizedGrowthPerMinute": 0.01,
+    "AfterHoursGrowthMultiplier": 3
+  },
+  "Laundering": {
+    "AutoLaunderFromInventory": true,
+    "EnableAutoLaunderTransactions": false,
+    "AutoLaunderBusinessCap": 5000,
+    "LaunderingProgressAfter4AM": true
+  },
+  "Simulation": {
+    "RealSecondsPerGameMinute": 1
+  },
+  "Advanced": {
+    "Diagnostics": false
+  }
+}
+```
+
+Older files with an `Employees` section or flat setting names are still accepted. New JSON exports use `Workers`. Make a backup before manually editing; the phone Mod Manager can also update these settings.
+
 These are **example preferences**, not necessarily the defaults in a fresh installation. Existing settings are preserved when upgrading. JSON changes are checked approximately every two seconds; the phone settings are stored in `UserData\MelonPreferences.cfg` and mirrored to JSON.
 
 Only use positive, finite numbers for the multiplier and timing settings. `NormalizedGrowthPerMinute` may be zero or positive. Invalid settings are ignored or replaced with safe runtime fallbacks.
