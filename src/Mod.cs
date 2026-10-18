@@ -115,7 +115,7 @@ public sealed class Mod : MelonMod
             "03 Laundering | Check available capacity", "Read-only preparation for auto laundering. Does not spend cash or start jobs.");
         _autoLaunderBusinessCap = prefs.CreateEntry("AutoLaunderBusinessCap", 0f,
             "03 Laundering | Maximum per business (0 = full capacity)",
-            "Caps planned allocation for each eligible owned business. 0 uses available capacity; payments are currently disabled.");
+            "Limit each automatic game job to this amount. 0 uses available capacity.");
         _allowAutoTransactions = prefs.CreateEntry("EnableAutoLaunderTransactions", false,
             "03 Laundering | Experimental automatic jobs",
             "Experimental feature: enable only with a backed-up game save.");
