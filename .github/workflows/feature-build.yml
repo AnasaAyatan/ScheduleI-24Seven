@@ -1,0 +1,39 @@
+name: Feature branch build
+
+on:
+  push:
+    branches:
+      - feature/auto-laundering
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore ScheduleI24Seven.csproj
+
+      - name: Compile release build
+        run: dotnet build ScheduleI24Seven.csproj --configuration Release --no-restore
+
+      - name: Upload test DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScheduleI24Seven-feature-build
+          path: bin/Release/net6.0/ScheduleI24Seven.dll
+          if-no-files-found: error
