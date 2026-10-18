@@ -6,6 +6,8 @@ $source = Get-Content -LiteralPath $SourceFile -Raw
 
 $required = [ordered]@{
     'Native UI confirmation' = 'confirm.Invoke(ui, null);'
+    'Preserve manual terminal selection' = 'object? previousBusiness = businessProperty.GetValue(ui);'
+    'Restore manual terminal selection' = 'initialize.Invoke(ui, new object[] { previousBusiness });'
     'Native amount validation' = 'actualSelected - requestAmount'
     'Business selection validation' = 'actualBusiness.Equals(business)'
     'Cash delta verification' = 'bool cashMatched ='
