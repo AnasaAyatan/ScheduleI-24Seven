@@ -590,6 +590,11 @@ public sealed class Mod : MelonMod
                 m.GetParameters()[0].ParameterType.IsAssignableFrom(business.GetType()));
             var selected = uiType.GetProperty("selectedAmountToLaunder", All)!;
             var confirm = uiType.GetMethod("ConfirmAmount", All, null, Type.EmptyTypes, null)!;
+            // The native interface is shared with manually opened business terminals.
+            // Preserve its previous selection so auto jobs do not leave the player
+            // looking at the last automatically processed business.
+            var businessProperty = uiType.GetProperty("Business", All)!;
+            object? previousBusiness = businessProperty.GetValue(ui);
             float requestAmount = amount;
             if (_businessOperations == null || _businessIsServer?.GetValue(business) is not true)
                 throw new InvalidOperationException("Game business authority changed before submission.");
@@ -614,6 +619,16 @@ public sealed class Mod : MelonMod
             if (actualBusiness == null || !actualBusiness.Equals(business))
                 throw new InvalidOperationException("Game UI business selection did not match the requested business.");
             confirm.Invoke(ui, null);
+            // The operation has been submitted. Restore the terminal context without
+            // issuing another confirmation or modifying the game cash balance.
+            if (previousBusiness != null && !previousBusiness.Equals(business))
+            {
+                try { initialize.Invoke(ui, new object[] { previousBusiness }); }
+                catch (Exception restoreError)
+                {
+                    MelonLogger.Warning("Could not restore previous laundering terminal selection: " + restoreError.Message);
+                }
+            }
             MelonLogger.Msg("Game auto request submitted using native confirmation: " +
                 requestAmount.ToString("F2"));
         }
