@@ -6,7 +6,14 @@ This repository uses a development branch for unreleased work. Versions and date
 
 ## [0.5.1] — unreleased
 
+### Added
+- Automatic native in-game laundering jobs for owned businesses, with per-business limits and automatic restarting after capacity is restored.
+- Categorized phone settings and editable JSON for Workers, Plants, Laundering, Simulation and Advanced; legacy JSON keys remain accepted.
+- Per-request cash and operation verification with a fail-closed safeguard.
+
 ### Changed
+- Automatic jobs use available capacity from their first request instead of an artificial $100 pilot limit.
+- Automatic job submission remains OFF by default on fresh installs.
 - Enabled after-hours plant growth by default for fresh installations.
 - Enabled after-hours botanist watering by default for fresh installations.
 - Employee work and pot moisture protection remain enabled by default.
@@ -14,7 +21,8 @@ This repository uses a development branch for unreleased work. Versions and date
 - No change to growth algorithms or watering task logic.
 
 ### Verification
-- Build and in-game verification pending before publication.
+- Previous experimental builds passed multiple native transactions and 4 AM restart tests.
+- The final settings migration and no-$100-first-job changes still require a fresh build and in-game smoke test before publication.
 
 ## [0.5.0] — published stable release
 
