@@ -34,6 +34,12 @@ foreach ($item in $required.GetEnumerator()) {
         $failed += $item.Key
     }
 }
+if ($source.Contains('CreateEntry("AutoLaunderFromInventory"')) {
+    $failed += 'Obsolete capacity toggle must not be shown'
+    Write-Error '[FAIL] Obsolete capacity toggle is still registered' -ErrorAction Continue
+} else {
+    Write-Host '[PASS] Capacity checking is mandatory, with no redundant toggle'
+}
 if ($failed.Count -gt 0) {
     throw "Source invariant validation failed: $($failed -join ', ')"
 }
