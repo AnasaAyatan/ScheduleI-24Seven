@@ -23,3 +23,24 @@ Run isolated tests: `dotnet run --project tests/LogisticsPlanner.Tests/Logistics
 6. Add in-game end-to-end checks for save/load, scarce funds, capacity constraints, multiplayer, and game updates.
 
 **Neither the planner nor this document copies lasersquid source code.** Public source visibility is not permission to reuse it.
+
+## Clarified core feature: locker-to-locker logistics across properties
+
+The transport feature targets **individual player-owned storage lockers on different owned properties**, not just an abstract property-wide stock total. Example: a source warehouse locker containing soil transfers a permitted quantity to a destination production locker at another property.
+
+### Default experience
+- Auto-transfer on, with no routes required for basic operation.
+- Detect shortages at destination lockers and compatible surplus in lockers at other owned properties.
+- Respect existing stacks, item identity, capacity, protected source stock, and any locker or slot filters supported by the game.
+- Allow a simple designation of destination locker / desired stock per item, with source lockers automatic by default.
+- Never pull from containers not explicitly eligible (e.g. player inventory, personal storage, processing stations, customer/dealer inventory).
+- Inventory moves should be transactional: reserve exact source items and destination slots; verify host authority; remove source and add destination with confirmation, rollback or safely halt on failure.
+- No visible vehicle requirement: transfer is virtual, but items must genuinely move within game inventory.
+- Avoid repeated transfers when stock is intentionally removed; treat stock targets as player-controlled demand rather than blindly cloning source contents.
+- Display basic last-transfer summary and a failure reason if delivery was blocked.
+
+### Required implementation adjustment
+The current Stock model is property-level and cannot distinguish two lockers within one property. Before any live transfer is implemented, upgrade the model to include stable locker/container identifiers and per-item inventory snapshots, plus source/destination eligibility. The existing planner is a prototype and **does not currently move locker contents**.
+
+### Validation
+Test with two lockers in different properties, mixed item stacks, no destination space, blocked items, save/reload, multiple candidate source lockers, interrupted transactions, and multiplayer host/client ownership.
