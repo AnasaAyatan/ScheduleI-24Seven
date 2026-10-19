@@ -77,3 +77,19 @@ Operational requirements:
 8. Keep the UI simple: Enable automatic product transfers, designate destination storage, and optionally configure source/destination and filters.
 
 **Current implementation status:** documentation only for this specific behaviour. The existing planner still uses generic property-level stock rows and cannot yet identify lockers, produced goods, or exact item variants. Do not advertise working automatic item transport.
+## Required v0.7.0 release scope — unified automated logistics
+
+All three capabilities are **mandatory for v0.7.0**, not deferred to separate releases:
+
+1. **Automatic transportation of player-produced goods** between designated lockers at different owned properties, regardless of product type or quality. Preserve item instance data and respect capacity and source reserves.
+2. **Built-in Auto-Restock** for purchasable ingredients and supplies (including examples such as Cuke and MegaBean), refilling eligible shelves and production-station supply slots using verified purchase and inventory APIs.
+3. **One coordinated logistics system** that handles both simultaneously, distinguishes produced outputs from purchasable inputs, avoids duplicate stock movements or purchases, and provides minimal, understandable settings.
+
+### Integration and compatibility
+- Both subsystems are core features. Enable by default only after successful verification and appropriate safety/compatibility safeguards; allow players to turn them off.
+- Do not copy lasersquid's source unless its license explicitly allows it or permission is obtained. Implement independently.
+- Detect an existing AutoRestock installation and prevent conflicting ownership of the same stock, rather than performing double restocks.
+- Guard all inventory and payment operations for host authority, exact item/quality fidelity, capacity limits, transactional confirmation, save/load, and multiplayer behavior.
+- Do not publish a v0.7.0 binary or advertise these features as working until real game APIs are verified and all three systems are implemented and tested.
+
+**Current status:** the committed code is only a generic, side-effect-free planner. No working in-game automatic product transport, purchases, or restocking exists yet. The planner needs container-aware and item-instance-aware redesign.
