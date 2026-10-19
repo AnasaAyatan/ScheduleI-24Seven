@@ -44,3 +44,18 @@ The current Stock model is property-level and cannot distinguish two lockers wit
 
 ### Validation
 Test with two lockers in different properties, mixed item stacks, no destination space, blocked items, save/reload, multiple candidate source lockers, interrupted transactions, and multiplayer host/client ownership.
+
+## Product transfer scope clarification (October 18)
+
+The primary cross-property transport use case is **finished goods**, e.g. Heavenly-grade Coco Leaves, between individual lockers. Basic store supplies such as Cuke and MegaBean remain the responsibility of AutoRestock, and are not the primary transport target.
+
+- Identify exact product variants, including quality/grade and other meaningful per-item instance metadata. Never conflate Heavenly-grade with lower-quality variants.
+- Transfer the actual item instance/stack data rather than reconstructing items from a generic product identifier.
+- Default to opt-in locker destinations or explicit product filters to prevent moving goods needed in production.
+- Support source keep-back quantities and destination capacity, partial transfers, and multiple production/distribution properties.
+- Prefer preserving produced goods across locker transfers rather than purchasing replacement ingredients.
+- Defer buying any products: this is a finished-product redistribution feature, separate from supply restocking.
+- Verify host-authoritative inventory movement APIs and save serialization prior to any live mutation.
+- Update the planner schema to include container ID and a product variant key; the existing abstract stock model is inadequate for product-instance transfer.
+
+This section overrides earlier wording suggesting that automatic purchases and generic raw-material balancing are the main purpose of inter-property transport.
