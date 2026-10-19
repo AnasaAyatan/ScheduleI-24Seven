@@ -59,3 +59,21 @@ The primary cross-property transport use case is **finished goods**, e.g. Heaven
 - Update the planner schema to include container ID and a product variant key; the existing abstract stock model is inadequate for product-instance transfer.
 
 This section overrides earlier wording suggesting that automatic purchases and generic raw-material balancing are the main purpose of inter-property transport.
+
+## Finalized division of responsibilities — general produced-goods transport
+
+**Primary intent:** Any product made/processed by the player's production chain at one owned property should be eligible for automatic transport to a locker/container at another owned property. The example of Heavenly-grade Coco Leaves is illustrative only. Do not hard-code product names, quality tiers, or a fixed list of output goods.
+
+**AutoRestock remains responsible for purchasable input supplies**, including Cuke and MegaBean. This mod's inter-property transport should not automatically move or purchase those store-bought materials.
+
+Operational requirements:
+1. Discover production outputs through verified game item metadata, registered production sources, or user-selected product/locker eligibility. Do not assume a generic ID always distinguishes produced outputs from bought items; ambiguous classifications should be user-configurable.
+2. Preserve the exact item instance, product identity, quality/grade, effects, stack properties and serialized metadata.
+3. Map eligible source output lockers to destination lockers at other owned properties, with a simple default workflow and optional per-property routes.
+4. Transfer only genuine available quantity, leave any configured source reserve, and respect destination inventory compatibility and capacity.
+5. Prevent item duplication, loss, conflicting concurrent transfers, and save/reload failures by using verified authoritative inventory APIs and committing moves transactionally.
+6. Never consume, move, or automatically purchase AutoRestock-managed input supplies as part of the produced-goods transport system.
+7. Treat the prior Heavenly-only quality filter as an optional filter at most, not a default or central use case.
+8. Keep the UI simple: Enable automatic product transfers, designate destination storage, and optionally configure source/destination and filters.
+
+**Current implementation status:** documentation only for this specific behaviour. The existing planner still uses generic property-level stock rows and cannot yet identify lockers, produced goods, or exact item variants. Do not advertise working automatic item transport.
