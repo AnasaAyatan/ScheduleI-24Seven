@@ -8,6 +8,9 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Standalone console test programs are not part of the MelonLoader DLL. -->
+    <Compile Remove="tests\**\*.cs" />
+    <Compile Remove="**\*.cs.bak" />
     <PackageReference Include="LavaGang.MelonLoader" Version="0.7.3" />
     <PackageReference Include="Lib.Harmony" Version="2.3.3" />
   </ItemGroup>
