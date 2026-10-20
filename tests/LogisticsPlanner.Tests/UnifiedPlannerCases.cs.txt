@@ -1,0 +1,40 @@
+using System;
+using System.Linq;
+using ScheduleI24Seven.Logistics;
+using static ScheduleI24Seven.Logistics.UnifiedLogisticsPlanner;
+
+static void Check(bool ok, string message) { if (!ok) throw new Exception(message); }
+
+var grown = new Slot("Farm", "LockerA", "coco", "Heavenly|effects:123", ItemKind.Produced,
+    80, 20, 30, 50, 0m, true, false);
+var receiving = new Slot("Lab", "LockerB", "coco", "Heavenly|effects:123", ItemKind.Produced,
+    0, 45, 0, 45, 0m, false, true);
+var seed = new Slot("Lab", "LockerC", "cuke", "base", ItemKind.Purchasable,
+    2, 20, 0, 18, 10m, false, true);
+
+var plan = Create(new[] { grown, receiving, seed }, 150m, 50m);
+Check(plan.Moves.Count == 1 && plan.Moves[0].Quantity == 45, "Exact-variant locker transfer");
+Check(plan.Moves[0].SourceContainer == "LockerA" &&
+      plan.Moves[0].DestinationContainer == "LockerB", "Container identity");
+Check(plan.Buys.Count == 1 && plan.Buys[0].Quantity == 10, "Cash reserve capped purchasing");
+Check(plan.EstimatedTotalCost == 100m, "Purchase cost");
+
+plan = Create(new[] { grown, receiving, seed }, 150m, 50m, autoTransport: false);
+Check(plan.Moves.Count == 0 && plan.Buys.Count == 1, "Transport toggle");
+plan = Create(new[] { grown, receiving, seed }, 150m, 50m, autoRestock: false);
+Check(plan.Moves.Count == 1 && plan.Buys.Count == 0, "Restock toggle");
+
+var wrongVariant = receiving with { VariantKey = "Normal|effects:123" };
+Check(Create(new[] { grown, wrongVariant }).Moves.Count == 0, "Never substitute variant");
+Check(Create(new[] { grown, receiving with { DestinationEligible = false } }).Moves.Count == 0,
+    "Disabled destination must be ignored");
+Check(Create(new[] { grown with { Quantity = 30 }, receiving }).Moves.Count == 0,
+    "Protected source quantity");
+Check(Create(new[] { seed with { Kind = ItemKind.Unknown } }, 500m, 0m).Buys.Count == 0,
+    "Unknown item classification must not be purchased");
+Check(Create(new[] { seed with { Target = 0 } }, 500m, 0m).Buys.Count == 0,
+    "Manually cleared target never restocks");
+
+try { Create(new[] { grown, grown }); throw new Exception("Duplicate allowed"); }
+catch (ArgumentException) { }
+Console.WriteLine("Unified logistics planner tests passed.");
