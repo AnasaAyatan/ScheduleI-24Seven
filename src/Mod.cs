@@ -173,6 +173,19 @@ public sealed class Mod : MelonMod
             DumpTransactionApi("Il2CppScheduleOne.ItemFramework.CashInstance");
             DumpTransactionApi("Il2CppScheduleOne.PlayerScripts.PlayerInventory");
         }
+        if (_diagnostics.Value)
+        {
+            try
+            {
+                var reportPath = ScheduleI24Seven.Diagnostics.LogisticsDiagnosticReport.Write(
+                    Path.Combine(AppContext.BaseDirectory, "UserData"));
+                MelonLogger.Msg("Logistics API report: " + reportPath);
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Error("Logistics API report failed: " + ex);
+            }
+        }
         InitializeLaunderingProgress();
         InitializeAutoLaunderTransactions();
         _employeeType = AccessTools.TypeByName("Il2CppScheduleOne.Employees.Employee");
