@@ -1315,11 +1315,14 @@ public sealed class Mod : MelonMod
             MelonLogger.Msg("API [" + type.Name + "]: " + member);
     }
 
+    private const double EndOfDaySampleLifetimeSeconds = 15.0;
     private static bool EndOfDay()
     {
-        // Fail closed if no recent game-side sample is available.
+        // Keep a recent positive getter observation long enough to survive short
+        // periods when the game does not poll its own getter. Still expire stale
+        // observations; never infer a frozen clock from elapsed time alone.
         return _cachedEndOfDay && _lastEndOfDaySample >= 0 &&
-               Watch.Elapsed.TotalSeconds - _lastEndOfDaySample < 3.0;
+               Watch.Elapsed.TotalSeconds - _lastEndOfDaySample < EndOfDaySampleLifetimeSeconds;
     }
 
     public static class TimePatch
@@ -1400,15 +1403,31 @@ public sealed class Mod : MelonMod
             var plants = _findPlants.Invoke(null, Array.Empty<object>());
             if (plants == null) throw new InvalidOperationException("Plant enumeration returned null.");
             int count = 0;
+            int found = 0;
+            int fullyGrown = 0;
+            int unavailableGrowth = 0;
             foreach (var plant in EnumeratePlants(plants))
             {
+                found++;
                 if (_protectWater.Value)
                 {
                     var raw = _getGrowthProgress!.GetValue(plant);
-                    if (raw is not float currentProgress || !float.IsFinite(currentProgress)
-                        || currentProgress >= 1f) continue;
+                    if (raw is not float currentProgress || !float.IsFinite(currentProgress))
+                    {
+                        unavailableGrowth++;
+                        continue;
+                    }
+                    if (currentProgress >= 1f)
+                    {
+                        fullyGrown++;
+                        continue;
+                    }
                     float increment = CalculatePlantGrowth(plant, simulatedMinutes);
-                    if (increment <= 0) continue;
+                    if (increment <= 0)
+                    {
+                        unavailableGrowth++;
+                        continue;
+                    }
                     float target = (float)Math.Min(1d, Math.Max(0d, currentProgress) + increment);
                     _setGrowthProgress!.Invoke(plant, new object[] { target });
                     if (_diagnostics.Value && count == 0)
@@ -1426,7 +1445,10 @@ public sealed class Mod : MelonMod
                 }
                 count++;
             }
-            if (_diagnostics.Value) MelonLogger.Msg($"Advanced {count} plants over {simulatedMinutes:F1} simulated minute(s); waterProtection={_protectWater.Value}.");
+            if (_diagnostics.Value)
+                MelonLogger.Msg($"Plant tick: found={found}, advanced={count}, fullyGrown={fullyGrown}, " +
+                                $"noGrowth={unavailableGrowth}, simulatedMinutes={simulatedMinutes:F1}, " +
+                                $"waterProtection={_protectWater.Value}.");
         }
         catch (Exception e)
         {
