@@ -1,21 +1,27 @@
-# Schedule I 24/7 v0.6.0 — Release notes
+# Schedule I 24/7 v0.6.1 — Plant-growth stability hotfix
 
-**Published:** October 18, 2026 · [GitHub release](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.6.0)
+**Status:** Release candidate; not yet published. Stable published version remains [v0.6.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.6.0).
 
-## Highlights
+## Changes
 
-Version 0.6.0 adds **optional automatic laundering** across owned businesses alongside the established 4 AM employee, botanist and plant features. It detects available capacity, respects a configurable cash reserve, verifies native transactions and preserves manual laundering-terminal selection. Phone settings are grouped into intuitive sections.
+- Extended the valid lifetime of a positive end-of-day observation from 3 seconds to 15 seconds, reducing short interruptions in after-hours operations when the game stops polling its getter.
+- Added detailed plant-growth diagnostic counts (found, advanced, fully grown, and no-growth) to distinguish a missing plant from an already mature plant.
+- No changes to the existing laundering, botanist, employee, JSON configuration or planned v0.7.0 logistics features.
 
-**Safe fresh-install defaults:** Auto-start laundering OFF · After-hours time speed 1.0 · Max per automatic job $0 (available capacity) · Cash to keep $0. Existing saved values are preserved.
+## Tested
 
-## Installation
+- Schedule I 0.4.7f12; MelonLoader 0.7.3 Open-Beta.
+- November 8 diagnostic log confirms after-hours plant-progress updates; end-of-day state remained valid past the previous 3-second timeout.
+- The test used accelerated simulation speed. Normal-speed behaviour, moisture preservation, multiplayer and other game versions are not independently confirmed.
 
-Download `ScheduleI24Seven-v0.6.0.zip` under [release assets](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.6.0) when attached. Extract `ScheduleI24Seven.dll` into the Schedule I `Mods` folder; close the game before updating. Do not confuse GitHub's generated *Source code* archives with a compiled mod.
+## Known limitations
 
-**Tested environment:** Schedule I 0.4.7f12, MelonLoader 0.7.3 Open-Beta, optional Mod Manager & Phone App 2.2.4.
+- A 15-second cache expiration is a mitigation, not guaranteed game-clock detection.
+- The independent external AutoRestock mod produced a storage-visualizer exception in the same test session; it is not fixed by this hotfix.
+- High simulation speeds can skip growth stages.
 
-## Testing and limits
+## Installation (after release)
 
-User-reported in-game tests passed for multiple automatic laundering jobs, manual terminal compatibility, cash reserve and save/reload. Multiplayer, newer game versions and extended unattended operation need separate testing. Automatic jobs halt on uncertain transaction confirmation. Review the [README](README.md) for detailed settings and troubleshooting.
+Build from this branch or obtain the compiled `ScheduleI24Seven.dll` from the eventual v0.6.1 GitHub release asset. Replace the previous DLL in the game's `Mods` directory while the game is closed, after backing up the old DLL. Do not install GitHub auto-generated source archives as a mod binary.
 
 © 2026 AnasaAyatan. See [LICENSE](LICENSE).

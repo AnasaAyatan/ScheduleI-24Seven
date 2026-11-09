@@ -2,7 +2,9 @@
 
 **Keep your Schedule I business running after 4 AM.** Continue employee tasks, botanist watering, plant growth and laundering progress when the in-game clock stops. Optionally automate laundering at owned businesses.
 
-**Latest release:** [v0.6.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.6.0) · **Game tested:** Schedule I 0.4.7f12 · **Platform:** Windows / IL2CPP
+**Latest published release:** [v0.6.0](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases/tag/v0.6.0) · **Game tested:** Schedule I 0.4.7f12 · **Platform:** Windows / IL2CPP
+
+**Next release candidate:** v0.6.1 plant-growth stability hotfix, currently under verification. See [release notes](RELEASE_NOTES.md). This branch is not a published downloadable release.
 
 ## Features
 
@@ -99,7 +101,7 @@ cd ScheduleI-24Seven
 dotnet build -c Release
 ```
 
-The DLL is created at `bin/Release/net6.0/ScheduleI24Seven.dll`. See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES.md](RELEASE_NOTES.md) for v0.6.0 release notes.
+The DLL is created at `bin/Release/net6.0/ScheduleI24Seven.dll`. See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES.md](RELEASE_NOTES.md) for the pending v0.6.1 hotfix notes.
 
 ## License
 
