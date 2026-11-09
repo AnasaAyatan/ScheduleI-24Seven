@@ -2,6 +2,17 @@
 
 User-facing changes by release. See [GitHub Releases](https://github.com/AnasaAyatan/ScheduleI-24Seven/releases) for downloadable versions.
 
+## [0.6.1] — hotfix candidate (not yet published)
+
+### Changed
+- Extended the end-of-day getter's cached positive observation window from three to fifteen seconds, mitigating temporary missed getter polls.
+- Improved plant diagnostics with counts for plants found, advanced, already fully grown and unable to progress.
+
+### Validation
+- In-game diagnostic log from 2026-11-08 shows successful plant-progress updates after 4 AM on Schedule I 0.4.7f12 / MelonLoader 0.7.3.
+- Additional default-speed, moisture-preservation and cross-installation verification is still recommended.
+- Automatic restocking is separate; a storage visualizer exception was observed in a concurrent external AutoRestock mod. No AutoRestock code is changed here.
+
 ## [0.6.0] — 2026-10-18
 
 ### Added
